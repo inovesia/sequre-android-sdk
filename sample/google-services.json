@@ -1,0 +1,48 @@
+{
+  "project_info": {
+    "project_number": "1097631359217",
+    "project_id": "qtrust-sequre",
+    "storage_bucket": "qtrust-sequre.appspot.com"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:1097631359217:android:a15ba8f81d61e0a005c950",
+        "android_client_info": {
+          "package_name": "id.sequre.Sequre"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDoxFtM8fIsZYWrq6XBbRmKNz02TkiNU60"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:1097631359217:android:93cd42018071fb7805c950",
+        "android_client_info": {
+          "package_name": "id.sequre.sample"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDoxFtM8fIsZYWrq6XBbRmKNz02TkiNU60"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

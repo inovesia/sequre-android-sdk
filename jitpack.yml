@@ -1,0 +1,9 @@
+jdk:
+  - openjdk17
+
+before_install:
+  - ./script/prepareJitpackEnvironment.sh
+
+install:
+  - FILE="-Dfile=sequre-release.aar"
+  - mvn install:install-file $FILE -GgroupId=com.github.inovesia -DartifactId=sequre-sdk -Dversion=0.1.0 -Dpacking=aar -DgeneratePom=true

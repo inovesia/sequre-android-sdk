@@ -1,0 +1,4 @@
+<resources>
+    <string name="app_name">Sequre SDK</string>
+    <string name="text_scan">Scan</string>
+</resources>
