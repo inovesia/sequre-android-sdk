@@ -1,8 +1,48 @@
-<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+<project xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xmlns="http://maven.apache.org/POM/4.0.0"
     xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
     <modelVersion>4.0.0</modelVersion>
     <groupId>com.github.inovesia</groupId>
     <artifactId>sequre-android-sdk</artifactId>
     <packaging>pom</packaging>
-    <version>0.1.0</version>
+    <version>0.1.3</version>
+    <dependencyManagement>
+        <dependencies>
+            <dependency>
+                <groupId>androidx.camera</groupId>
+                <artifactId>camera-core</artifactId>
+                <version>1.2.3</version>
+            </dependency>
+            <dependency>
+                <groupId>androidx.camera</groupId>
+                <artifactId>camera-camera2</artifactId>
+                <version>1.2.3</version>
+            </dependency>
+            <dependency>
+                <groupId>androidx.camera</groupId>
+                <artifactId>camera-lifecycle</artifactId>
+                <version>1.2.3</version>
+            </dependency>
+            <dependency>
+                <groupId>androidx.camera</groupId>
+                <artifactId>camera-video</artifactId>
+                <version>1.2.3</version>
+            </dependency>
+            <dependency>
+                <groupId>androidx.camera</groupId>
+                <artifactId>camera-view</artifactId>
+                <version>1.2.3</version>
+            </dependency>
+            <dependency>
+                <groupId>org.tensorflow</groupId>
+                <artifactId>tensorflow-lite-task-vision-play-services</artifactId>
+                <version>0.4.2</version>
+            </dependency>
+            <dependency>
+                <groupId>com.google.android.gms</groupId>
+                <artifactId>play-services-tflite-gpu</artifactId>
+                <version>16.2.0</version>
+            </dependency>
+        </dependencies>
+    </dependencyManagement>
 </project>
