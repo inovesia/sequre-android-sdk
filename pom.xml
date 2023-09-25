@@ -3,5 +3,6 @@
     <modelVersion>4.0.0</modelVersion>
     <groupId>com.github.inovesia</groupId>
     <artifactId>sequre-android-sdk</artifactId>
+    <packaging>pom</packaging>
     <version>0.1.0</version>
 </project>
