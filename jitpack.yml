@@ -5,5 +5,4 @@ before_install:
   - ./script/prepareJitpackEnvironment.sh
 
 install:
-  - FILE="-Dfile=sequre-release.aar"
-  - mvn install:install-file $FILE -DgroupId=com.github.inovesia -DartifactId=sequre-android-sdk -Dversion=0.1.4 -Dpackaging=aar -DgeneratePom=true
+  - mvn install:install-file -Dfile=sequre-release.aar -DgeneratePom=false

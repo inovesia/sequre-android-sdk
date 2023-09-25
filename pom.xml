@@ -4,8 +4,17 @@
     <modelVersion>4.0.0</modelVersion>
     <groupId>com.github.inovesia</groupId>
     <artifactId>sequre-android-sdk</artifactId>
-    <packaging>pom</packaging>
-    <version>0.1.4</version>
+    <packaging>aar</packaging>
+    <version>0.1.5</version>
+    <url>https://github.com/inovesia/sequre-android-sdk</url>
+    <inceptionYear>2023</inceptionYear>
+    <developers>
+        <developer>
+            <id>Qtrust</id>
+            <name>Qtrust</name>
+            <email>m.jumari@gmail.com</email>
+        </developer>
+    </developers>
     <dependencyManagement>
         <dependencies>
             <dependency>
