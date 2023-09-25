@@ -11,8 +11,8 @@ android {
     defaultConfig {
         minSdk 21
         targetSdk 34
-        versionCode 3
-        versionName "0.1.4"
+        versionCode 5
+        versionName "0.1.5"
 
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
     }
@@ -43,14 +43,8 @@ publishing {
         maven(MavenPublication) {
             groupId = 'com.github.inovesia'
             artifactId = 'sequre-android-sdk'
-            version = "0.1.4"
-            pom {
-                description = 'Sequre SDK for validating sequre label'
-            }
+            version = "0.1.5"
         }
-    }
-    repositories {
-        mavenLocal()
     }
 }
 

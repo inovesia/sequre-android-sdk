@@ -5,4 +5,4 @@ before_install:
   - ./script/prepareJitpackEnvironment.sh
 
 install:
-  - mvn install:install-file -Dfile=sequre-release.aar -DgeneratePom=false
+  - mvn install:install-file -Dfile=sequre-release.aar -DpomFile=pom.xml

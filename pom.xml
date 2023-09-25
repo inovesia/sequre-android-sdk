@@ -4,10 +4,11 @@
     <modelVersion>4.0.0</modelVersion>
     <groupId>com.github.inovesia</groupId>
     <artifactId>sequre-android-sdk</artifactId>
-    <packaging>aar</packaging>
-    <version>0.1.5</version>
+    <packaging>pom</packaging>
+    <version>0.1.6</version>
     <url>https://github.com/inovesia/sequre-android-sdk</url>
     <inceptionYear>2023</inceptionYear>
+    <description>Sequre SDK for validating sequre label</description>
     <developers>
         <developer>
             <id>Qtrust</id>
@@ -15,6 +16,11 @@
             <email>m.jumari@gmail.com</email>
         </developer>
     </developers>
+    <scm>
+        <connection>scm:git://github.com/inovesia/sequre-android-sdk.git</connection>
+        <developerConnection>scm:git://github.com/inovesia/sequre-android-sdk.git</developerConnection>
+        <url>git://github.com/inovesia/sequre-android-sdk.git</url>
+    </scm>
     <dependencyManagement>
         <dependencies>
             <dependency>
