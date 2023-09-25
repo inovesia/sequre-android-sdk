@@ -4,4 +4,4 @@ jdk:
 before_install:
 
 install:
-  - mvn install:install-file -Dfile=sequre-release.aar -DpomFile=pom.xml
+  - mvn install:install-file -Dfile=sequre-release.aar -Dpackaging=aar -DpomFile=pom.xml
