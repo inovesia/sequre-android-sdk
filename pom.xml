@@ -5,7 +5,7 @@
     <groupId>com.github.inovesia</groupId>
     <artifactId>sequre-android-sdk</artifactId>
     <packaging>pom</packaging>
-    <version>0.1.6</version>
+    <version>0.1.8</version>
     <url>https://github.com/inovesia/sequre-android-sdk</url>
     <inceptionYear>2023</inceptionYear>
     <description>Sequre SDK for validating sequre label</description>
