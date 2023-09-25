@@ -42,7 +42,7 @@ publishing {
     publications {
         maven(MavenPublication) {
             groupId = 'com.github.inovesia'
-            artifactId = 'sequre-sdk'
+            artifactId = 'sequre-android-sdk'
             version = "0.1.0"
             pom {
                 description = 'Sequre SDK for validating sequre label'
