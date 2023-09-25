@@ -1,7 +1,6 @@
 plugins {
     id 'com.android.library'
     id 'com.google.gms.google-services'
-    id 'maven-publish'
 }
 
 android {
@@ -11,16 +10,13 @@ android {
     defaultConfig {
         minSdk 21
         targetSdk 34
-        versionCode 8
-        versionName "0.1.9"
+        versionCode 11
+        versionName "0.1.11"
 
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
     }
 
     buildTypes {
-        debug {
-
-        }
         release {
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
@@ -38,14 +34,8 @@ android {
     }
 }
 
-publishing {
-    publications {
-        maven(MavenPublication) {
-            groupId = 'com.github.inovesia'
-            artifactId = 'sequre-android-sdk'
-            version = "0.1.9"
-        }
-    }
+tasks.withType(JavaCompile) {
+    options.compilerArgs << "-Xlint:unchecked" << "-Xlint:deprecation"
 }
 
 dependencies {

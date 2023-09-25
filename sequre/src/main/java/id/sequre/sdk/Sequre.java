@@ -308,7 +308,7 @@ public class Sequre extends AppCompatActivity {
 
                 if (classifications.size() > 0 && classifications.get(0).getCategories().size() > 0) {
                     Category category = classifications.get(0).getCategories().get(0);
-                    System.out.println(":: " + category.getLabel() + "; " + category.getScore());
+//                    System.out.println(":: " + category.getLabel() + "; " + category.getScore());
                     result.score = category.getScore();
                     if (category.getLabel().equals("genuine")) {
                         if (category.getScore() > 0.85f) {
@@ -380,7 +380,7 @@ public class Sequre extends AppCompatActivity {
             protected void onDraw(@NonNull Canvas canvas) {
                 super.onDraw(canvas);
                 // draw mask
-                paint.setColor(getResources().getColor(R.color.transparent));
+                paint.setColor(ContextCompat.getColor(Sequre.this, R.color.transparent));
 
                 canvas.drawRect(0, 0, params.width, (float) vertical, paint);
                 canvas.drawRect(0, (float) (params.height - vertical), params.width, params.height, paint);
@@ -436,7 +436,6 @@ public class Sequre extends AppCompatActivity {
                         if (cameraState.getType().equals(CameraState.Type.OPEN)) {
                             binding.sequrePreview.postDelayed(() -> {
                                 float zoomRatio = Math.min(4f, camera.getCameraInfo().getZoomState().getValue().getMaxZoomRatio());
-                                System.out.println(":: setZoomRatio: " + zoomRatio);
                                 camera.getCameraControl().setZoomRatio(zoomRatio);
                             }, 100);
                         }
