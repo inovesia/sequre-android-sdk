@@ -1,7 +1,7 @@
 <resources>
     <string name="app_name">Sequre SDK</string>
     <string name="text_camera_permission">Camera Permissions</string>
-    <string name="text_must_allow">You must allow application to access your camera</string>
+    <string name="text_must_allow">You must allow %s to access your camera</string>
     <string name="text_place_qr_inside_frame">Place qr inside frame</string>
     <string name="text_move_closer">Move Closer</string>
     <string name="text_move_further">Move Further</string>

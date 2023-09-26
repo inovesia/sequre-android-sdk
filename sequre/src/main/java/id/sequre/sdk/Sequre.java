@@ -53,13 +53,15 @@ import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
 import java.util.Random;
+import java.util.Timer;
+import java.util.TimerTask;
 
 import id.sequre.sdk.databinding.SequreBinding;
 
 
 public class Sequre extends AppCompatActivity {
 
-    private Context context;
+    private static Context CONTEXT;
     private String applicationNumber;
     private static Callback callback;
 
@@ -70,7 +72,7 @@ public class Sequre extends AppCompatActivity {
     private ImageAnalysis imageAnalysis;
     private ImageCapture imageCapture;
     private Camera camera;
-    private boolean resized, torch, processing;
+    private boolean resized, torch;
     private double moveCloser = 0.6, moveFurther = 0.8, distancesLength = 3, distancesMax = 40, percentage = 0.9, ratio, left, top, width, height, vertical, horizontal;
     private int eventColor = Color.RED;
 
@@ -80,6 +82,9 @@ public class Sequre extends AppCompatActivity {
 
     private View mask;
     private Result result = new Result();
+
+    private Long processing;
+    private Timer watcher;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -156,6 +161,16 @@ public class Sequre extends AppCompatActivity {
             }
         });
 
+        watcher = new Timer();
+        watcher.schedule(new TimerTask() {
+            @Override
+            public void run() {
+                if (processing != null && System.currentTimeMillis() - processing > 5000) {
+                    processing = null;
+                }
+            }
+        }, 1000, 1000);
+
         requestPermissions();
     }
 
@@ -188,8 +203,8 @@ public class Sequre extends AppCompatActivity {
     }
 
     private void detect(ImageProxy imageProxy) {
-        if (!processing && objectDetector != null) {
-            processing = true;
+        if (processing == null && objectDetector != null) {
+            processing = System.currentTimeMillis();
             ImageProcessor.Builder builder = new ImageProcessor.Builder();
             ImageProcessor imageProcessor = builder.build();
 
@@ -215,19 +230,19 @@ public class Sequre extends AppCompatActivity {
                     eventColor = Color.WHITE;
                     binding.sequreInfo.setText(R.string.text_place_qr_inside_frame);
                     mask.invalidate();
-                    processing = false;
+                    processing = null;
                 } else {
                     double percentage = boundingBox.width() / width;
                     if (percentage < moveCloser) {
                         eventColor = Color.WHITE;
                         binding.sequreInfo.setText(R.string.text_move_closer);
                         mask.invalidate();
-                        processing = false;
+                        processing = null;
                     } else if (percentage > 0.8) {
                         eventColor = Color.WHITE;
                         binding.sequreInfo.setText(R.string.text_move_further);
                         mask.invalidate();
-                        processing = false;
+                        processing = null;
                     } else {
                         double distance = Math.sqrt(Math.pow(boundingBox.left - left, 2) + Math.pow(boundingBox.top - top, 2));
                         left = boundingBox.left;
@@ -245,7 +260,7 @@ public class Sequre extends AppCompatActivity {
                             eventColor = Color.GREEN;
                             binding.sequreInfo.setText(R.string.text_hold_steady);
                             mask.invalidate();
-//                            processing = false;
+//                            processing = null;
                             if (average <= distancesMax) {
                                 // capture
                                 imageCapture.takePicture(ContextCompat.getMainExecutor(Sequre.this), new ImageCapture.OnImageCapturedCallback() {
@@ -258,22 +273,22 @@ public class Sequre extends AppCompatActivity {
                                     @Override
                                     public void onError(@NonNull ImageCaptureException exception) {
                                         super.onError(exception);
-                                        processing = false;
+                                        processing = null;
                                     }
                                 });
                             } else {
-                                processing = false;
+                                processing = null;
                             }
                         } else {
-                            processing = false;
+                            processing = null;
                         }
                     }
                 }
             } else {
-                eventColor = Color.WHITE;
+                eventColor = Color.GRAY;
                 binding.sequreInfo.setText(R.string.text_find_qr);
                 mask.invalidate();
-                processing = false;
+                processing = null;
             }
         }
     }
@@ -326,13 +341,13 @@ public class Sequre extends AppCompatActivity {
 
                     finish();
                 } else {
-                    processing = false;
+                    processing = null;
                 }
             } else {
-                processing = false;
+                processing = null;
             }
         } else {
-            processing = false;
+            processing = null;
         }
     }
 
@@ -459,7 +474,7 @@ public class Sequre extends AppCompatActivity {
             } else {
                 new AlertDialog.Builder(Sequre.this)
                         .setTitle(R.string.text_camera_permission)
-                        .setMessage(R.string.text_must_allow)
+                        .setMessage(String.format(getString(R.string.text_must_allow), CONTEXT.getApplicationInfo().loadLabel(CONTEXT.getPackageManager())))
                         .show();
             }
         }
@@ -469,15 +484,21 @@ public class Sequre extends AppCompatActivity {
     public void finish() {
         super.finish();
         callback.onResult(result);
+        try {
+            watcher.cancel();
+            watcher = null;
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
     }
 
     public void init(Context context, String applicationNumber) {
-        this.context = context;
+        this.CONTEXT = context;
         this.applicationNumber = applicationNumber;
     }
 
     public void scan(Callback callback) {
         this.callback = callback;
-        context.startActivity(new Intent(context, Sequre.class));
+        CONTEXT.startActivity(new Intent(CONTEXT, Sequre.class));
     }
 }
