@@ -33,8 +33,17 @@ import androidx.camera.lifecycle.ProcessCameraProvider;
 import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
 
+import com.google.android.gms.common.util.ArrayUtils;
 import com.google.android.gms.tflite.client.TfLiteInitializationOptions;
 import com.google.common.util.concurrent.ListenableFuture;
+import com.google.zxing.BarcodeFormat;
+import com.google.zxing.BinaryBitmap;
+import com.google.zxing.DecodeHintType;
+import com.google.zxing.LuminanceSource;
+import com.google.zxing.MultiFormatReader;
+import com.google.zxing.RGBLuminanceSource;
+import com.google.zxing.Reader;
+import com.google.zxing.common.HybridBinarizer;
 
 import org.tensorflow.lite.support.image.ImageProcessor;
 import org.tensorflow.lite.support.image.TensorImage;
@@ -51,7 +60,9 @@ import java.nio.ByteBuffer;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Date;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Random;
 import java.util.Timer;
 import java.util.TimerTask;
@@ -86,6 +97,8 @@ public class Sequre extends AppCompatActivity {
     private Long processing;
     private Timer watcher;
 
+    private MultiFormatReader reader;
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -112,6 +125,11 @@ public class Sequre extends AppCompatActivity {
         } else {
             initTensorFlow();
         }
+
+        reader = new MultiFormatReader();
+        Map<DecodeHintType, List<BarcodeFormat>> hints = new HashMap<>();
+        hints.put(DecodeHintType.POSSIBLE_FORMATS, ArrayUtils.toArrayList(new BarcodeFormat[]{BarcodeFormat.QR_CODE}));
+        reader.setHints(hints);
 
         imageAnalysis = new ImageAnalysis.Builder()
                 .setOutputImageFormat(ImageAnalysis.OUTPUT_IMAGE_FORMAT_RGBA_8888)
@@ -211,6 +229,27 @@ public class Sequre extends AppCompatActivity {
             Bitmap imageBuffer = Bitmap.createBitmap(imageProxy.getWidth(), imageProxy.getHeight(), Bitmap.Config.ARGB_8888);
             imageBuffer.copyPixelsFromBuffer(imageProxy.getPlanes()[0].getBuffer());
 
+            // read qr
+            int[] intArray = new int[imageBuffer.getWidth() * imageBuffer.getHeight()];
+            //copy pixel data from the Bitmap into the 'intArray' array
+            imageBuffer.getPixels(intArray, 0, imageBuffer.getWidth(), 0, 0, imageBuffer.getWidth(), imageBuffer.getHeight());
+
+            LuminanceSource source = new RGBLuminanceSource(imageBuffer.getWidth(), imageBuffer.getHeight(), intArray);
+            BinaryBitmap bitmap = new BinaryBitmap(new HybridBinarizer(source));
+
+            Reader reader = new MultiFormatReader();// use this otherwise ChecksumException
+            try {
+                com.google.zxing.Result qr = reader.decode(bitmap);
+                result.qr = qr.getText();
+                if (!result.qr.startsWith("HTTP://QTRU.ST/")) {
+                    result.status = Status.Fake;
+                    result.message = "fake_qr";
+                    finish();
+                }
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
+
             TensorImage image = imageProcessor.process(TensorImage.fromBitmap(imageBuffer));
 
             List<Detection> detections = objectDetector.detect(image);
@@ -306,42 +345,46 @@ public class Sequre extends AppCompatActivity {
             TensorImage image = imageProcessor.process(TensorImage.fromBitmap(bitmap));
             List<Detection> detections = objectDetectorV2.detect(image);
             if (detections.size() > 0) {
-
-                RectF boundingBox = detections.get(0).getBoundingBox();
+                try {
+                    RectF boundingBox = detections.get(0).getBoundingBox();
 //                System.out.println(":: boundingBox: " + boundingBox.left + "; " + boundingBox.top + "; " + boundingBox.width() + "; " + boundingBox.height());
 
-                Bitmap cropped = Bitmap.createBitmap(bitmap, (int) boundingBox.left, (int) boundingBox.top, (int) boundingBox.width(), (int) boundingBox.height());
+                    Bitmap cropped = Bitmap.createBitmap(bitmap, (int) boundingBox.left, (int) boundingBox.top, (int) boundingBox.width(), (int) boundingBox.height());
 
 
-                Bitmap resized = Bitmap.createBitmap(cropped.getWidth(), cropped.getWidth(), Bitmap.Config.ARGB_8888);
-                resized.eraseColor(Color.WHITE);
-                Canvas canvas = new Canvas(resized);
-                canvas.drawBitmap(cropped, (float) 0, (float) ((cropped.getWidth() - cropped.getHeight()) / 2d), null);
+                    Bitmap resized = Bitmap.createBitmap(cropped.getWidth(), cropped.getWidth(), Bitmap.Config.ARGB_8888);
+                    resized.eraseColor(Color.WHITE);
+                    Canvas canvas = new Canvas(resized);
+                    canvas.drawBitmap(cropped, (float) 0, (float) ((cropped.getWidth() - cropped.getHeight()) / 2d), null);
 
-                image = imageProcessor.process(TensorImage.fromBitmap(cropped));
-                List<Classifications> classifications = imageClassifier.classify(image);
+                    image = imageProcessor.process(TensorImage.fromBitmap(cropped));
+                    List<Classifications> classifications = imageClassifier.classify(image);
 
-                if (classifications.size() > 0 && classifications.get(0).getCategories().size() > 0) {
-                    Category category = classifications.get(0).getCategories().get(0);
+                    if (classifications.size() > 0 && classifications.get(0).getCategories().size() > 0) {
+                        Category category = classifications.get(0).getCategories().get(0);
 //                    System.out.println(":: " + category.getLabel() + "; " + category.getScore());
-                    result.score = category.getScore();
-                    if (category.getLabel().equals("genuine")) {
-                        if (category.getScore() > 0.85f) {
-                            result.status = Status.Genuine;
+                        result.score = category.getScore();
+                        if (category.getLabel().equals("genuine")) {
+                            if (category.getScore() > 0.85f) {
+                                result.status = Status.Genuine;
+                            } else {
+                                result.status = Status.Fake;
+                                result.message = "poor_image_quality";
+                            }
                         } else {
                             result.status = Status.Fake;
-                            result.message = "poor_image_quality";
                         }
-                    } else {
-                        result.status = Status.Fake;
-                    }
 
 //                    save(bitmap);
 //                    save(resized);
 
-                    finish();
-                } else {
+                        finish();
+                    } else {
+                        processing = null;
+                    }
+                } catch (Exception e) {
                     processing = null;
+                    e.printStackTrace();
                 }
             } else {
                 processing = null;

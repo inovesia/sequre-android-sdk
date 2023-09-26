@@ -4,6 +4,7 @@ public class Result {
     protected Status status;
     protected Float score;
     protected String message;
+    protected String qr;
 
     public Result() {
         status = Status.Canceled;
@@ -21,11 +22,16 @@ public class Result {
         return message;
     }
 
+    public String getQr() {
+        return qr;
+    }
+
     @Override
     public String toString() {
         return "Result{" +
                 "status=" + status +
                 ", score=" + score +
+                ", qr='" + qr + '\'' +
                 ", message='" + message + '\'' +
                 '}';
     }

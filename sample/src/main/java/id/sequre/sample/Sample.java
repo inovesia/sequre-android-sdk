@@ -28,6 +28,7 @@ public class Sample extends AppCompatActivity {
             ResultBinding item = ResultBinding.inflate(getLayoutInflater());
             item.resultStatus.setText(String.format("%s", result.getStatus()));
             item.resultMessage.setText(result.getMessage() == null ? "" : result.getMessage());
+            item.resultQr.setText(result.getQr() == null ? "" : result.getQr());
             item.resultScore.setText(result.getScore() == null ? "" : (String.format("%s", result.getScore())).substring(0, 4));
             binding.results.addView(item.getRoot(), 0);
         }));
