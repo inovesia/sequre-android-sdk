@@ -66,6 +66,18 @@
         android:textColor="@color/white"
         android:textSize="16sp" />
 
+    <EditText
+        android:id="@+id/sequre_log"
+        android:layout_width="match_parent"
+        android:layout_height="100dp"
+        android:layout_alignParentBottom="true"
+        android:layout_margin="20dp"
+        android:fontFamily="@font/proxima_nova_regular"
+        android:gravity="center"
+        android:textColor="@color/white"
+        android:textSize="14sp"
+        android:visibility="gone" />
+
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"

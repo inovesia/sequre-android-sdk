@@ -8,6 +8,7 @@ import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.graphics.Canvas;
 import android.graphics.Color;
+import android.graphics.Matrix;
 import android.graphics.Paint;
 import android.graphics.RectF;
 import android.os.Bundle;
@@ -63,7 +64,6 @@ import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Random;
 import java.util.Timer;
 import java.util.TimerTask;
 
@@ -76,8 +76,6 @@ public class Sequre extends AppCompatActivity {
     private String applicationNumber;
     private static Callback callback;
 
-    private Random random = new Random();
-
     private static int PERMISSION_REQUEST = 0x01;
     private SequreBinding binding;
     private ImageAnalysis imageAnalysis;
@@ -85,14 +83,14 @@ public class Sequre extends AppCompatActivity {
     private Camera camera;
     private boolean resized, torch;
     private double moveCloser = 0.6, moveFurther = 0.8, distancesLength = 3, distancesMax = 40, percentage = 0.9, ratio, left, top, width, height, vertical, horizontal;
-    private int eventColor = Color.RED;
+    private int eventColor = Color.GRAY;
 
     private ObjectDetector objectDetector, objectDetectorV2;
     private ImageClassifier imageClassifier;
-    private List<Double> distances = new ArrayList<>();
+    private List<Double> distances;
+    private Result result;
 
     private View mask;
-    private Result result = new Result();
 
     private Long processing;
     private Timer watcher;
@@ -105,6 +103,10 @@ public class Sequre extends AppCompatActivity {
 
         binding = SequreBinding.inflate(getLayoutInflater());
         setContentView(binding.getRoot());
+
+        distances = new ArrayList<>();
+        result = new Result();
+
 
         if (!TfLiteVision.isInitialized()) {
             TfLiteInitializationOptions tfOptions = TfLiteInitializationOptions.builder().setEnableGpuDelegateSupport(true).build();
@@ -143,8 +145,14 @@ public class Sequre extends AppCompatActivity {
             if (!resized) {
                 initMask(imageProxy);
             }
-            detect(imageProxy);
-            imageProxy.close();
+            new Thread() {
+                @Override
+                public void run() {
+                    log("processing preview");
+                    detect(imageProxy);
+                    imageProxy.close();
+                }
+            }.run();
         });
 
         imageCapture = new ImageCapture.Builder()
@@ -157,6 +165,7 @@ public class Sequre extends AppCompatActivity {
         binding.sequreTorch.setOnClickListener(view -> {
             if (camera.getCameraInfo().hasFlashUnit()) {
                 camera.getCameraControl().enableTorch((torch = !torch));
+                binding.sequreTorch.setImageResource(torch ? R.mipmap.ic_torch : R.mipmap.ic_torch_off);
             }
         });
 
@@ -183,7 +192,7 @@ public class Sequre extends AppCompatActivity {
         watcher.schedule(new TimerTask() {
             @Override
             public void run() {
-                if (processing != null && System.currentTimeMillis() - processing > 5000) {
+                if (processing != null && System.currentTimeMillis() - processing > 2000) {
                     processing = null;
                 }
             }
@@ -202,6 +211,7 @@ public class Sequre extends AppCompatActivity {
 //        } catch (Exception e) {
 //            e.printStackTrace();
 //        }
+
         try {
             objectDetector = ObjectDetector.createFromFileAndOptions(Sequre.this, "sequre.tflite", objectDetectorOptions.build());
             objectDetectorV2 = ObjectDetector.createFromFileAndOptions(Sequre.this, "sequre_v2.tflite", objectDetectorOptions.build());
@@ -223,6 +233,7 @@ public class Sequre extends AppCompatActivity {
     private void detect(ImageProxy imageProxy) {
         if (processing == null && objectDetector != null) {
             processing = System.currentTimeMillis();
+            log("preparing image");
             ImageProcessor.Builder builder = new ImageProcessor.Builder();
             ImageProcessor imageProcessor = builder.build();
 
@@ -230,6 +241,7 @@ public class Sequre extends AppCompatActivity {
             imageBuffer.copyPixelsFromBuffer(imageProxy.getPlanes()[0].getBuffer());
 
             // read qr
+            log("extract qrcode");
             int[] intArray = new int[imageBuffer.getWidth() * imageBuffer.getHeight()];
             //copy pixel data from the Bitmap into the 'intArray' array
             imageBuffer.getPixels(intArray, 0, imageBuffer.getWidth(), 0, 0, imageBuffer.getWidth(), imageBuffer.getHeight());
@@ -241,15 +253,21 @@ public class Sequre extends AppCompatActivity {
             try {
                 com.google.zxing.Result qr = reader.decode(bitmap);
                 result.qr = qr.getText();
-                if (!result.qr.startsWith("HTTP://QTRU.ST/")) {
-                    result.status = Status.Fake;
-                    result.message = "fake_qr";
-                    finish();
-                }
             } catch (Exception e) {
                 e.printStackTrace();
             }
-
+            if (result.qr == null) {
+                processing = null;
+                return;
+            }
+            log("qrcode: " + result.qr);
+            if (!result.qr.startsWith("HTTP://QTRU.ST/")) {
+                result.status = Status.Fake;
+                result.message = "fake_qr";
+                finish();
+                return;
+            }
+            log("TensorFlow: detecting objects");
             TensorImage image = imageProcessor.process(TensorImage.fromBitmap(imageBuffer));
 
             List<Detection> detections = objectDetector.detect(image);
@@ -263,7 +281,7 @@ public class Sequre extends AppCompatActivity {
 
                 double vertical = (size.getHeight() - height) / 2;
                 double horizontal = (size.getWidth() - width) / 2;
-//                System.out.println(":: " + detections.size() + " : " + size.getWidth() + "; " + size.getHeight() + ";" + horizontal + "; " + vertical + "; " + width + "; " + height + " boundingBox: " + boundingBox.left + "; " + boundingBox.top + "; " + boundingBox.right + "; " + boundingBox.bottom + "; " + boundingBox.width() + "; " + boundingBox.height());
+//                log(detections.size() + " : " + size.getWidth() + "; " + size.getHeight() + ";" + horizontal + "; " + vertical + "; " + width + "; " + height + " boundingBox: " + boundingBox.left + "; " + boundingBox.top + "; " + boundingBox.right + "; " + boundingBox.bottom + "; " + boundingBox.width() + "; " + boundingBox.height());
                 if (!(boundingBox.left >= horizontal && boundingBox.right <= horizontal + width &&
                         boundingBox.top >= vertical && boundingBox.bottom <= vertical + height)) {
                     eventColor = Color.WHITE;
@@ -302,11 +320,19 @@ public class Sequre extends AppCompatActivity {
 //                            processing = null;
                             if (average <= distancesMax) {
                                 // capture
+                                log("takePicture");
                                 imageCapture.takePicture(ContextCompat.getMainExecutor(Sequre.this), new ImageCapture.OnImageCapturedCallback() {
                                     @Override
                                     public void onCaptureSuccess(@NonNull ImageProxy image) {
                                         super.onCaptureSuccess(image);
-                                        detect2(image);
+                                        new Thread() {
+                                            @Override
+                                            public void run() {
+                                                detect2(image);
+                                                image.close();
+                                            }
+                                        }.start();
+
                                     }
 
                                     @Override
@@ -334,6 +360,7 @@ public class Sequre extends AppCompatActivity {
 
     private void detect2(ImageProxy imageProxy) {
         if (objectDetectorV2 != null) {
+            log("TensorFlow: processing");
             ImageProcessor.Builder builder = new ImageProcessor.Builder();
             ImageProcessor imageProcessor = builder.build();
 
@@ -342,16 +369,14 @@ public class Sequre extends AppCompatActivity {
             byte[] bytes = new byte[length];
             buffer.get(bytes);
             Bitmap bitmap = BitmapFactory.decodeByteArray(bytes, 0, length);
+            bitmap = rotate(bitmap);
             TensorImage image = imageProcessor.process(TensorImage.fromBitmap(bitmap));
             List<Detection> detections = objectDetectorV2.detect(image);
             if (detections.size() > 0) {
                 try {
                     RectF boundingBox = detections.get(0).getBoundingBox();
-//                System.out.println(":: boundingBox: " + boundingBox.left + "; " + boundingBox.top + "; " + boundingBox.width() + "; " + boundingBox.height());
-
+                    log("TensorFlow: found at " + boundingBox.left + "; " + boundingBox.top + "; " + boundingBox.width() + "; " + boundingBox.height());
                     Bitmap cropped = Bitmap.createBitmap(bitmap, (int) boundingBox.left, (int) boundingBox.top, (int) boundingBox.width(), (int) boundingBox.height());
-
-
                     Bitmap resized = Bitmap.createBitmap(cropped.getWidth(), cropped.getWidth(), Bitmap.Config.ARGB_8888);
                     resized.eraseColor(Color.WHITE);
                     Canvas canvas = new Canvas(resized);
@@ -362,7 +387,7 @@ public class Sequre extends AppCompatActivity {
 
                     if (classifications.size() > 0 && classifications.get(0).getCategories().size() > 0) {
                         Category category = classifications.get(0).getCategories().get(0);
-//                    System.out.println(":: " + category.getLabel() + "; " + category.getScore());
+//                        log(category.getLabel() + "; " + category.getScore());
                         result.score = category.getScore();
                         if (category.getLabel().equals("genuine")) {
                             if (category.getScore() > 0.85f) {
@@ -375,22 +400,47 @@ public class Sequre extends AppCompatActivity {
                             result.status = Status.Fake;
                         }
 
-//                    save(bitmap);
-//                    save(resized);
-
+                        if (result.status.equals(Status.Fake)) {
+                            save(bitmap);
+                            save(resized);
+                        }
                         finish();
+
                     } else {
+                        save(resized);
+                        log("TensorFlow: no classification found");
                         processing = null;
                     }
                 } catch (Exception e) {
                     processing = null;
                     e.printStackTrace();
+                    log("TensorFlow: error: " + e.toString());
                 }
             } else {
+                save(bitmap);
+                log("TensorFlow: no object found");
                 processing = null;
             }
         } else {
             processing = null;
+        }
+    }
+
+    private Bitmap rotate(Bitmap bitmap) {
+        if (bitmap.getWidth() > bitmap.getHeight()) {
+            Matrix matrix = new Matrix();
+            matrix.postRotate(90);
+            return Bitmap.createBitmap(bitmap, 0, 0, bitmap.getWidth(), bitmap.getHeight(), matrix, true);
+        }
+        return bitmap;
+    }
+
+    private void log(String text) {
+        try {
+            System.out.println(":: " + text);
+//            runOnUiThread(() -> binding.sequreLog.setText(text + "\n" + binding.sequreLog.getText()));
+        } catch (Exception e) {
+            e.printStackTrace();
         }
     }
 
@@ -401,10 +451,10 @@ public class Sequre extends AppCompatActivity {
     private void save(Bitmap bitmap) {
         try {
             String timestamp = new SimpleDateFormat("yyyyMMdd_HHmm").format(new Date());
-            String name = timestamp + "_" + random.nextInt() + ".png";
+            String name = timestamp + "_" + System.currentTimeMillis() + ".png";
             File file = new File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_PICTURES), name);
             FileOutputStream fos = new FileOutputStream(file);
-            bitmap.compress(Bitmap.CompressFormat.PNG, 100, fos);
+            bitmap.compress(Bitmap.CompressFormat.JPEG, 60, fos);
             fos.flush();
             fos.close();
         } catch (Exception e) {
