@@ -4,4 +4,4 @@ jdk:
 before_install:
 
 install:
-  - mvn install:install-file -Dfile=sequre-android-sdk-0.3 -DgroupId=com.github.inovesia -DartifactId=sequre-android-sdk -Dversion=0.3 -Dpackaging=aar -DgeneratePom=true
+  - mvn install:install-file -Dfile=sequre-0.3.aar -DgroupId=com.github.inovesia -DartifactId=sequre-android-sdk -Dversion=0.3 -Dpackaging=aar -DgeneratePom=true
