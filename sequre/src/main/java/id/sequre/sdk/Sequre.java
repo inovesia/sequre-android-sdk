@@ -663,7 +663,7 @@ public class Sequre extends AppCompatActivity {
                                 "Bundle: " + context.getPackageName() + "\n" +
                                 "SHA: " + sha + "\n" +
                                 "Error: " + response.message;
-                        log(message);
+                        System.out.println(message);
                         message = response.message;
                         Utils.alert(CONTEXT, CONTEXT.getString(R.string.app_name), message);
                     } else {
