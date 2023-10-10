@@ -3,7 +3,9 @@ package id.sequre.sdk;
 import android.Manifest;
 import android.content.Context;
 import android.content.Intent;
+import android.content.pm.PackageInfo;
 import android.content.pm.PackageManager;
+import android.content.pm.Signature;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.graphics.Canvas;
@@ -13,6 +15,7 @@ import android.graphics.Paint;
 import android.graphics.RectF;
 import android.os.Bundle;
 import android.os.Environment;
+import android.util.Base64;
 import android.util.Size;
 import android.view.View;
 import android.view.ViewGroup;
@@ -58,6 +61,7 @@ import org.tensorflow.lite.task.gms.vision.detector.ObjectDetector;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.nio.ByteBuffer;
+import java.security.MessageDigest;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Date;
@@ -73,6 +77,7 @@ import id.sequre.sdk.databinding.SequreBinding;
 public class Sequre extends AppCompatActivity {
 
     private static Context CONTEXT;
+    private String message;
     private String applicationNumber;
     private static Callback callback;
 
@@ -437,8 +442,7 @@ public class Sequre extends AppCompatActivity {
 
     private void log(String text) {
         try {
-            System.out.println(":: " + text);
-//            runOnUiThread(() -> binding.sequreLog.setText(text + "\n" + binding.sequreLog.getText()));
+//            System.out.println(":: " + text);
         } catch (Exception e) {
             e.printStackTrace();
         }
@@ -477,8 +481,6 @@ public class Sequre extends AppCompatActivity {
 
         vertical = (params.height - height) / 2;
         horizontal = (params.width - width) / 2;
-
-//        System.out.println(":: params: " + params.width + "; " + params.height + "; " + width + "; " + height + "; " + vertical + "; " + horizontal);
 
         Paint paint = new Paint();
         int iw = 10;
@@ -585,13 +587,80 @@ public class Sequre extends AppCompatActivity {
         }
     }
 
+    private String getFingerprint(Context context) {
+        try {
+            PackageInfo info = context.getPackageManager().getPackageInfo(context.getPackageName(), PackageManager.GET_SIGNATURES);
+            for (Signature signature : info.signatures) {
+                MessageDigest md;
+                md = MessageDigest.getInstance("SHA");
+                md.update(signature.toByteArray());
+                String sha = "";
+                byte[] digests = md.digest();
+                for (int i = 0; i < digests.length; i++) {
+                    sha += String.format("%02X", digests[i]);
+                    if (i < digests.length - 1) {
+                        sha += ":";
+                    }
+                }
+                return sha;
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        return null;
+    }
+
     public void init(Context context, String applicationNumber) {
+        if (context == null) {
+            message = context.getString(R.string.context_can_t_be_null);
+            Utils.alert(CONTEXT, CONTEXT.getString(R.string.app_name), message);
+            return;
+        }
+        if (applicationNumber == null) {
+            message = context.getString(R.string.application_number_can_t_be_null);
+            Utils.alert(CONTEXT, CONTEXT.getString(R.string.app_name), message);
+            return;
+        }
+        if (applicationNumber.isEmpty()) {
+            message = context.getString(R.string.application_number_can_t_be_empty);
+            Utils.alert(CONTEXT, CONTEXT.getString(R.string.app_name), message);
+            return;
+        }
         this.CONTEXT = context;
         this.applicationNumber = applicationNumber;
+        String sha = getFingerprint(context);
+        Utils.ApiRequest request = Utils.newApiRequest();
+        request.put("number", applicationNumber);
+        request.put("bundle", context.getPackageName());
+        request.put("sha", sha);
+        Utils.api(context, "post", Utils.ACTION_VALIDATE, request.json(), response -> {
+            if (response != null && response.code != 0x00) {
+                if (response.code == 0x05) {
+                    Utils.alert(CONTEXT, CONTEXT.getString(R.string.app_name), response.message);
+                } else if (response.code == 0x03 || response.code == 0x04) {
+                    message = "Number: " + applicationNumber + "\n" +
+                            "Bundle: " + context.getPackageName() + "\n" +
+                            "SHA: " + sha + "\n" +
+                            "Error: " + response.message;
+                    log(message);
+                    message = response.message;
+                    Utils.alert(CONTEXT, CONTEXT.getString(R.string.app_name), message);
+                } else {
+                    message = response.message;
+                    Utils.alert(CONTEXT, CONTEXT.getString(R.string.app_name), message);
+                }
+            } else {
+                message = "Validation error: check your internet connection";
+            }
+        });
     }
 
     public void scan(Callback callback) {
-        this.callback = callback;
-        CONTEXT.startActivity(new Intent(CONTEXT, Sequre.class));
+        if (message != null) {
+            Utils.alert(CONTEXT, CONTEXT.getString(R.string.app_name), message);
+        } else {
+            this.callback = callback;
+            CONTEXT.startActivity(new Intent(CONTEXT, Sequre.class));
+        }
     }
 }
