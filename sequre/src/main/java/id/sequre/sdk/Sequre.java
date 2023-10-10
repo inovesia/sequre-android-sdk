@@ -1,11 +1,13 @@
 package id.sequre.sdk;
 
 import android.Manifest;
+import android.annotation.SuppressLint;
 import android.content.Context;
 import android.content.Intent;
 import android.content.pm.PackageInfo;
 import android.content.pm.PackageManager;
 import android.content.pm.Signature;
+import android.content.pm.SigningInfo;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.graphics.Canvas;
@@ -13,6 +15,7 @@ import android.graphics.Color;
 import android.graphics.Matrix;
 import android.graphics.Paint;
 import android.graphics.RectF;
+import android.os.Build;
 import android.os.Bundle;
 import android.os.Environment;
 import android.util.Base64;
@@ -589,21 +592,38 @@ public class Sequre extends AppCompatActivity {
 
     private String getFingerprint(Context context) {
         try {
-            PackageInfo info = context.getPackageManager().getPackageInfo(context.getPackageName(), PackageManager.GET_SIGNATURES);
-            for (Signature signature : info.signatures) {
-                MessageDigest md;
-                md = MessageDigest.getInstance("SHA");
-                md.update(signature.toByteArray());
-                String sha = "";
-                byte[] digests = md.digest();
-                for (int i = 0; i < digests.length; i++) {
-                    sha += String.format("%02X", digests[i]);
-                    if (i < digests.length - 1) {
-                        sha += ":";
-                    }
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+                SigningInfo info = context.getPackageManager().getPackageInfo(context.getPackageName(), PackageManager.GET_SIGNING_CERTIFICATES).signingInfo;
+                if (info.hasMultipleSigners()) {
+                    return toHex(info.getApkContentsSigners()[0].toByteArray());
+                } else {
+                    return toHex(info.getSigningCertificateHistory()[0].toByteArray());
                 }
-                return sha;
+            } else {
+                PackageInfo info = context.getPackageManager().getPackageInfo(context.getPackageName(), PackageManager.GET_SIGNATURES);
+                for (Signature signature : info.signatures) {
+                    return toHex(signature.toByteArray());
+                }
             }
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        return null;
+    }
+
+    private String toHex(byte[] array) {
+        try {
+            MessageDigest md = MessageDigest.getInstance("SHA");
+            md.update(array);
+            String sha = "";
+            byte[] digests = md.digest();
+            for (int i = 0; i < digests.length; i++) {
+                sha += String.format("%02X", digests[i]);
+                if (i < digests.length - 1) {
+                    sha += ":";
+                }
+            }
+            return sha;
         } catch (Exception e) {
             e.printStackTrace();
         }
@@ -634,23 +654,26 @@ public class Sequre extends AppCompatActivity {
         request.put("bundle", context.getPackageName());
         request.put("sha", sha);
         Utils.api(context, "post", Utils.ACTION_VALIDATE, request.json(), response -> {
-            if (response != null && response.code != 0x00) {
-                if (response.code == 0x05) {
-                    Utils.alert(CONTEXT, CONTEXT.getString(R.string.app_name), response.message);
-                } else if (response.code == 0x03 || response.code == 0x04) {
-                    message = "Number: " + applicationNumber + "\n" +
-                            "Bundle: " + context.getPackageName() + "\n" +
-                            "SHA: " + sha + "\n" +
-                            "Error: " + response.message;
-                    log(message);
-                    message = response.message;
-                    Utils.alert(CONTEXT, CONTEXT.getString(R.string.app_name), message);
-                } else {
-                    message = response.message;
-                    Utils.alert(CONTEXT, CONTEXT.getString(R.string.app_name), message);
+            if (response != null) {
+                if (response.code != 0x00) {
+                    if (response.code == 0x05) {
+                        Utils.alert(CONTEXT, CONTEXT.getString(R.string.app_name), response.message);
+                    } else if (response.code == 0x03 || response.code == 0x04) {
+                        message = "Number: " + applicationNumber + "\n" +
+                                "Bundle: " + context.getPackageName() + "\n" +
+                                "SHA: " + sha + "\n" +
+                                "Error: " + response.message;
+                        log(message);
+                        message = response.message;
+                        Utils.alert(CONTEXT, CONTEXT.getString(R.string.app_name), message);
+                    } else {
+                        message = response.message;
+                        Utils.alert(CONTEXT, CONTEXT.getString(R.string.app_name), message);
+                    }
                 }
             } else {
                 message = "Validation error: check your internet connection";
+                Utils.alert(CONTEXT, CONTEXT.getString(R.string.app_name), message);
             }
         });
     }
