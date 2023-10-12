@@ -1,7 +1,6 @@
 package id.sequre.sdk;
 
 import android.Manifest;
-import android.annotation.SuppressLint;
 import android.content.Context;
 import android.content.Intent;
 import android.content.pm.PackageInfo;
@@ -18,7 +17,6 @@ import android.graphics.RectF;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.Environment;
-import android.util.Base64;
 import android.util.Size;
 import android.view.View;
 import android.view.ViewGroup;
@@ -80,9 +78,10 @@ import id.sequre.sdk.databinding.SequreBinding;
 public class Sequre extends AppCompatActivity {
 
     private static Context CONTEXT;
+    private static id.sequre.sdk.Callback CALLBACK;
+    private boolean validated;
     private String message;
     private String applicationNumber;
-    private static Callback callback;
 
     private static int PERMISSION_REQUEST = 0x01;
     private SequreBinding binding;
@@ -581,7 +580,7 @@ public class Sequre extends AppCompatActivity {
     @Override
     public void finish() {
         super.finish();
-        callback.onResult(result);
+        CALLBACK.onResult(result);
         try {
             watcher.cancel();
             watcher = null;
@@ -631,36 +630,42 @@ public class Sequre extends AppCompatActivity {
     }
 
     public void init(Context context, String applicationNumber) {
-        if (context == null) {
-            message = context.getString(R.string.context_can_t_be_null);
+        this.CONTEXT = context;
+        this.applicationNumber = applicationNumber;
+        validate(null);
+    }
+
+    private void validate(Callback callback) {
+        if (CONTEXT == null) {
+            message = CONTEXT.getString(R.string.context_can_t_be_null);
             Utils.alert(CONTEXT, CONTEXT.getString(R.string.app_name), message);
             return;
         }
         if (applicationNumber == null) {
-            message = context.getString(R.string.application_number_can_t_be_null);
+            message = CONTEXT.getString(R.string.application_number_can_t_be_null);
             Utils.alert(CONTEXT, CONTEXT.getString(R.string.app_name), message);
             return;
         }
         if (applicationNumber.isEmpty()) {
-            message = context.getString(R.string.application_number_can_t_be_empty);
+            message = CONTEXT.getString(R.string.application_number_can_t_be_empty);
             Utils.alert(CONTEXT, CONTEXT.getString(R.string.app_name), message);
             return;
         }
-        this.CONTEXT = context;
-        this.applicationNumber = applicationNumber;
-        String sha = getFingerprint(context);
+        String sha = getFingerprint(CONTEXT);
         Utils.ApiRequest request = Utils.newApiRequest();
         request.put("number", applicationNumber);
-        request.put("bundle", context.getPackageName());
+        request.put("bundle", CONTEXT.getPackageName());
         request.put("sha", sha);
-        Utils.api(context, "post", Utils.ACTION_VALIDATE, request.json(), response -> {
+        Utils.api(CONTEXT, "post", Utils.ACTION_VALIDATE, request.json(), response -> {
             if (response != null) {
+                message = null;
+                validated = true;
                 if (response.code != 0x00) {
                     if (response.code == 0x05) {
                         Utils.alert(CONTEXT, CONTEXT.getString(R.string.app_name), response.message);
                     } else if (response.code == 0x03 || response.code == 0x04) {
                         message = "Number: " + applicationNumber + "\n" +
-                                "Bundle: " + context.getPackageName() + "\n" +
+                                "Bundle: " + CONTEXT.getPackageName() + "\n" +
                                 "SHA: " + sha + "\n" +
                                 "Error: " + response.message;
                         System.out.println(message);
@@ -670,20 +675,33 @@ public class Sequre extends AppCompatActivity {
                         message = response.message;
                         Utils.alert(CONTEXT, CONTEXT.getString(R.string.app_name), message);
                     }
+                } else if (callback != null) {
+                    callback.on();
                 }
             } else {
-                message = "Validation error: check your internet connection";
-                Utils.alert(CONTEXT, CONTEXT.getString(R.string.app_name), message);
+                Utils.alert(CONTEXT, CONTEXT.getString(R.string.app_name), CONTEXT.getString(R.string.text_check_your_internet_connection));
             }
         });
     }
 
-    public void scan(Callback callback) {
-        if (message != null) {
+    public void scan(id.sequre.sdk.Callback callback) {
+        if (!validated) {
+            validate(new Callback() {
+                @Override
+                void on() {
+                    Sequre.CALLBACK = callback;
+                    CONTEXT.startActivity(new Intent(CONTEXT, Sequre.class));
+                }
+            });
+        } else if (message != null) {
             Utils.alert(CONTEXT, CONTEXT.getString(R.string.app_name), message);
         } else {
-            this.callback = callback;
+            Sequre.CALLBACK = callback;
             CONTEXT.startActivity(new Intent(CONTEXT, Sequre.class));
         }
+    }
+
+    abstract class Callback {
+        abstract void on();
     }
 }

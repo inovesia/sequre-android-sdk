@@ -10,4 +10,5 @@
     <string name="context_can_t_be_null">context can\'t be null</string>
     <string name="application_number_can_t_be_null">applicationNumber can\'t be null</string>
     <string name="application_number_can_t_be_empty">applicationNumber can\'t be empty</string>
+    <string name="text_check_your_internet_connection">Check your internet connection</string>
 </resources>
