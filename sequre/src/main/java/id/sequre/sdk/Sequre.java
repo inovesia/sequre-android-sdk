@@ -89,8 +89,10 @@ public class Sequre extends AppCompatActivity {
     private ImageCapture imageCapture;
     private Camera camera;
     private boolean resized, torch;
-    private double moveCloser = 0.6, moveFurther = 0.8, distancesLength = 3, distancesMax = 40, percentage = 0.9, ratio, left, top, width, height, vertical, horizontal;
+    private double moveCloser = 0.6, moveFurther = 0.8, distancesLength = 3, distancesMax = 40, percentage = 0.8, ratio, left, top, width, height, vertical, horizontal;
     private int eventColor = Color.GRAY;
+    private int eventWidth = 10;
+//    private List<RectF> boundingBoxs = new ArrayList<>();
 
     private ObjectDetector objectDetector, objectDetectorV2;
     private ImageClassifier imageClassifier;
@@ -277,10 +279,18 @@ public class Sequre extends AppCompatActivity {
             log("TensorFlow: detecting objects");
             TensorImage image = imageProcessor.process(TensorImage.fromBitmap(imageBuffer));
 
+//            boundingBoxs.clear();
             List<Detection> detections = objectDetector.detect(image);
             if (detections.size() > 0) {
-
                 Size size = new Size(imageProxy.getHeight(), imageProxy.getWidth());
+//                ViewGroup.LayoutParams params = binding.sequrePreviews.getLayoutParams();
+//                for (Detection detection : detections) {
+//                    RectF boundingBox = detection.getBoundingBox();
+//                    // scale meet preview size
+//                    boundingBox = new RectF(size.getWidth() - boundingBox.bottom, boundingBox.left, size.getWidth() - boundingBox.bottom + boundingBox.height(), boundingBox.right);
+//                    boundingBox = new RectF(boundingBox.left / size.getWidth() * params.width, boundingBox.top / size.getHeight() * params.height, boundingBox.right / size.getWidth() * params.width, boundingBox.bottom / size.getHeight() * params.height);
+//                    boundingBoxs.add(boundingBox);
+//                }
                 RectF boundingBox = transform(detections.get(0).getBoundingBox());
 
                 double height = size.getHeight() * percentage;
@@ -291,19 +301,22 @@ public class Sequre extends AppCompatActivity {
 //                log(detections.size() + " : " + size.getWidth() + "; " + size.getHeight() + ";" + horizontal + "; " + vertical + "; " + width + "; " + height + " boundingBox: " + boundingBox.left + "; " + boundingBox.top + "; " + boundingBox.right + "; " + boundingBox.bottom + "; " + boundingBox.width() + "; " + boundingBox.height());
                 if (!(boundingBox.left >= horizontal && boundingBox.right <= horizontal + width &&
                         boundingBox.top >= vertical && boundingBox.bottom <= vertical + height)) {
-                    eventColor = Color.WHITE;
+                    eventColor = Color.GREEN;
+                    eventWidth = 10;
                     binding.sequreInfo.setText(R.string.text_place_qr_inside_frame);
                     mask.invalidate();
                     processing = null;
                 } else {
                     double percentage = boundingBox.width() / width;
                     if (percentage < moveCloser) {
-                        eventColor = Color.WHITE;
+                        eventColor = Color.GREEN;
+                        eventWidth = 10;
                         binding.sequreInfo.setText(R.string.text_move_closer);
                         mask.invalidate();
                         processing = null;
                     } else if (percentage > 0.8) {
-                        eventColor = Color.WHITE;
+                        eventColor = Color.GREEN;
+                        eventWidth = 10;
                         binding.sequreInfo.setText(R.string.text_move_further);
                         mask.invalidate();
                         processing = null;
@@ -322,6 +335,7 @@ public class Sequre extends AppCompatActivity {
                             }
                             double average = total / distancesLength;
                             eventColor = Color.GREEN;
+                            eventWidth = 20;
                             binding.sequreInfo.setText(R.string.text_hold_steady);
                             mask.invalidate();
 //                            processing = null;
@@ -358,6 +372,7 @@ public class Sequre extends AppCompatActivity {
                 }
             } else {
                 eventColor = Color.GRAY;
+                eventWidth = 10;
                 binding.sequreInfo.setText(R.string.text_find_qr);
                 mask.invalidate();
                 processing = null;
@@ -455,17 +470,17 @@ public class Sequre extends AppCompatActivity {
     }
 
     private void save(Bitmap bitmap) {
-        try {
-            String timestamp = new SimpleDateFormat("yyyyMMdd_HHmm").format(new Date());
-            String name = timestamp + "_" + System.currentTimeMillis() + ".png";
-            File file = new File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_PICTURES), name);
-            FileOutputStream fos = new FileOutputStream(file);
-            bitmap.compress(Bitmap.CompressFormat.JPEG, 60, fos);
-            fos.flush();
-            fos.close();
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
+//        try {
+//            String timestamp = new SimpleDateFormat("yyyyMMdd_HHmm").format(new Date());
+//            String name = timestamp + "_" + System.currentTimeMillis() + ".png";
+//            File file = new File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_PICTURES), name);
+//            FileOutputStream fos = new FileOutputStream(file);
+//            bitmap.compress(Bitmap.CompressFormat.JPEG, 60, fos);
+//            fos.flush();
+//            fos.close();
+//        } catch (Exception e) {
+//            e.printStackTrace();
+//        }
     }
 
     private void initMask(ImageProxy image) {
@@ -485,7 +500,6 @@ public class Sequre extends AppCompatActivity {
         horizontal = (params.width - width) / 2;
 
         Paint paint = new Paint();
-        int iw = 10;
         int il = 80;
         mask = new View(Sequre.this) {
             @Override
@@ -501,17 +515,27 @@ public class Sequre extends AppCompatActivity {
 
                 // draw event indicator
                 paint.setColor(eventColor);
-                canvas.drawRect((float) (horizontal - iw), (float) (vertical - iw), (float) (horizontal + il - iw), (float) vertical, paint);
-                canvas.drawRect((float) (horizontal - iw), (float) (vertical - iw), (float) horizontal, (float) (vertical + il - iw), paint);
+                canvas.drawRect((float) (horizontal - eventWidth), (float) (vertical - eventWidth), (float) (horizontal + il - eventWidth), (float) vertical, paint);
+                canvas.drawRect((float) (horizontal - eventWidth), (float) (vertical - eventWidth), (float) horizontal, (float) (vertical + il - eventWidth), paint);
 
-                canvas.drawRect((float) (horizontal - iw), (float) (params.height - vertical + iw), (float) horizontal, (float) (params.height - vertical - il + iw), paint);
-                canvas.drawRect((float) (horizontal - iw), (float) (params.height - vertical + iw), (float) (horizontal + il - iw), (float) (params.height - vertical), paint);
+                canvas.drawRect((float) (horizontal - eventWidth), (float) (params.height - vertical + eventWidth), (float) horizontal, (float) (params.height - vertical - il + eventWidth), paint);
+                canvas.drawRect((float) (horizontal - eventWidth), (float) (params.height - vertical + eventWidth), (float) (horizontal + il - eventWidth), (float) (params.height - vertical), paint);
 
-                canvas.drawRect((float) (params.width - horizontal + iw), (float) (vertical - iw), (float) (params.width - horizontal - il + iw), (float) vertical, paint);
-                canvas.drawRect((float) (params.width - horizontal + iw), (float) (vertical - iw), (float) (params.width - horizontal), (float) (vertical + il - iw), paint);
+                canvas.drawRect((float) (params.width - horizontal + eventWidth), (float) (vertical - eventWidth), (float) (params.width - horizontal - il + eventWidth), (float) vertical, paint);
+                canvas.drawRect((float) (params.width - horizontal + eventWidth), (float) (vertical - eventWidth), (float) (params.width - horizontal), (float) (vertical + il - eventWidth), paint);
 
-                canvas.drawRect((float) (params.width - horizontal + iw), (float) (params.height - vertical + iw), (float) (params.width - horizontal - il + iw), (float) (params.height - vertical), paint);
-                canvas.drawRect((float) (params.width - horizontal + iw), (float) (params.height - vertical + iw), (float) (params.width - horizontal), (float) (params.height - vertical - il + iw), paint);
+                canvas.drawRect((float) (params.width - horizontal + eventWidth), (float) (params.height - vertical + eventWidth), (float) (params.width - horizontal - il + eventWidth), (float) (params.height - vertical), paint);
+                canvas.drawRect((float) (params.width - horizontal + eventWidth), (float) (params.height - vertical + eventWidth), (float) (params.width - horizontal), (float) (params.height - vertical - il + eventWidth), paint);
+
+//                // draw boundingBox
+//                paint.setColor(Color.GREEN);
+//                for (RectF boundingBox : boundingBoxs) {
+//                    canvas.drawRect(boundingBox.left, boundingBox.top, boundingBox.left + boundingBox.width(), boundingBox.top + iw / 1.5f, paint);
+//                    canvas.drawRect(boundingBox.left, boundingBox.top, boundingBox.left + iw / 1.5f, boundingBox.top + boundingBox.height(), paint);
+//
+//                    canvas.drawRect(boundingBox.right, boundingBox.bottom, boundingBox.right - boundingBox.width(), boundingBox.bottom - iw / 1.5f, paint);
+//                    canvas.drawRect(boundingBox.right, boundingBox.bottom, boundingBox.right - iw / 1.5f, boundingBox.bottom - boundingBox.height(), paint);
+//                }
             }
         };
 
