@@ -89,8 +89,9 @@ public class Sequre extends AppCompatActivity {
     private ImageCapture imageCapture;
     private Camera camera;
     private boolean resized, torch;
-    private double moveCloser = 0.6, moveFurther = 0.8, distancesLength = 3, distancesMax = 40, percentage = 0.9, ratio, left, top, width, height, vertical, horizontal;
+    private double moveCloser = 0.6, moveFurther = 0.8, distancesLength = 3, distancesMax = 40, percentage = 0.8, ratio, left, top, width, height, vertical, horizontal;
     private int eventColor = Color.GRAY;
+    private List<RectF> boundingBoxs = new ArrayList<>();
 
     private ObjectDetector objectDetector, objectDetectorV2;
     private ImageClassifier imageClassifier;
@@ -277,10 +278,18 @@ public class Sequre extends AppCompatActivity {
             log("TensorFlow: detecting objects");
             TensorImage image = imageProcessor.process(TensorImage.fromBitmap(imageBuffer));
 
+            boundingBoxs.clear();
             List<Detection> detections = objectDetector.detect(image);
             if (detections.size() > 0) {
-
                 Size size = new Size(imageProxy.getHeight(), imageProxy.getWidth());
+                ViewGroup.LayoutParams params = binding.sequrePreviews.getLayoutParams();
+                for (Detection detection : detections) {
+                    RectF boundingBox = detection.getBoundingBox();
+                    // scale meet preview size
+                    boundingBox = new RectF(size.getWidth() - boundingBox.bottom, boundingBox.left, size.getWidth() - boundingBox.bottom + boundingBox.height(), boundingBox.right);
+                    boundingBox = new RectF(boundingBox.left / size.getWidth() * params.width, boundingBox.top / size.getHeight() * params.height, boundingBox.right / size.getWidth() * params.width, boundingBox.bottom / size.getHeight() * params.height);
+                    boundingBoxs.add(boundingBox);
+                }
                 RectF boundingBox = transform(detections.get(0).getBoundingBox());
 
                 double height = size.getHeight() * percentage;
@@ -512,6 +521,16 @@ public class Sequre extends AppCompatActivity {
 
                 canvas.drawRect((float) (params.width - horizontal + iw), (float) (params.height - vertical + iw), (float) (params.width - horizontal - il + iw), (float) (params.height - vertical), paint);
                 canvas.drawRect((float) (params.width - horizontal + iw), (float) (params.height - vertical + iw), (float) (params.width - horizontal), (float) (params.height - vertical - il + iw), paint);
+
+                // draw boundingBox
+                paint.setColor(Color.GREEN);
+                for (RectF boundingBox : boundingBoxs) {
+                    canvas.drawRect(boundingBox.left, boundingBox.top, boundingBox.left + boundingBox.width(), boundingBox.top + iw / 1.5f, paint);
+                    canvas.drawRect(boundingBox.left, boundingBox.top, boundingBox.left + iw / 1.5f, boundingBox.top + boundingBox.height(), paint);
+
+                    canvas.drawRect(boundingBox.right, boundingBox.bottom, boundingBox.right - boundingBox.width(), boundingBox.bottom - iw / 1.5f, paint);
+                    canvas.drawRect(boundingBox.right, boundingBox.bottom, boundingBox.right - iw / 1.5f, boundingBox.bottom - boundingBox.height(), paint);
+                }
             }
         };
 
