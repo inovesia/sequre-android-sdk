@@ -3,6 +3,7 @@ package id.sequre.sdk;
 import android.Manifest;
 import android.content.Context;
 import android.content.Intent;
+import android.content.SharedPreferences;
 import android.content.pm.PackageInfo;
 import android.content.pm.PackageManager;
 import android.content.pm.Signature;
@@ -17,11 +18,15 @@ import android.graphics.RectF;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.Environment;
+import android.text.Editable;
+import android.text.TextWatcher;
 import android.util.Size;
+import android.view.KeyEvent;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.RelativeLayout;
 import android.widget.SeekBar;
+import android.widget.TextView;
 
 import androidx.annotation.NonNull;
 import androidx.appcompat.app.AlertDialog;
@@ -77,6 +82,7 @@ import id.sequre.sdk.databinding.SequreBinding;
 
 public class Sequre extends AppCompatActivity {
 
+    private static boolean FINISHED;
     private static Context CONTEXT;
     private static id.sequre.sdk.Callback CALLBACK;
     private boolean validated;
@@ -89,10 +95,10 @@ public class Sequre extends AppCompatActivity {
     private ImageCapture imageCapture;
     private Camera camera;
     private boolean resized, torch;
-    private double moveCloser = 0.6, moveFurther = 0.8, distancesLength = 3, distancesMax = 40, percentage = 0.8, ratio, left, top, width, height, vertical, horizontal;
+    private double moveCloser = 0.6, moveFurther = 0.8, distancesLength = 3, distancesMax = 40, framePercentage = 0.8, frameRatio = 1.0 / 2.0, ratio, left, top, width, height, vertical, horizontal;
     private int eventColor = Color.GRAY;
     private int eventWidth = 10;
-//    private List<RectF> boundingBoxs = new ArrayList<>();
+    private List<RectF> boundingBoxs = new ArrayList<>();
 
     private ObjectDetector objectDetector, objectDetectorV2;
     private ImageClassifier imageClassifier;
@@ -105,10 +111,13 @@ public class Sequre extends AppCompatActivity {
     private Timer watcher;
 
     private MultiFormatReader reader;
+    private SharedPreferences pref;
+    private Long[] timelines = new Long[4];
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        timelines[0] = System.currentTimeMillis();
 
         binding = SequreBinding.inflate(getLayoutInflater());
         setContentView(binding.getRoot());
@@ -158,7 +167,10 @@ public class Sequre extends AppCompatActivity {
                 @Override
                 public void run() {
                     log("processing preview");
-                    detect(imageProxy);
+                    if (processing == null) {
+                        processing = System.currentTimeMillis();
+                        detect(imageProxy);
+                    }
                     imageProxy.close();
                 }
             }.run();
@@ -208,6 +220,62 @@ public class Sequre extends AppCompatActivity {
         }, 1000, 1000);
 
         requestPermissions();
+
+        pref = getSharedPreferences(getPackageName(), MODE_PRIVATE);
+        framePercentage = Double.parseDouble(pref.getString("framePercentage", "0.9"));
+        frameRatio = Double.parseDouble(pref.getString("frameRatio", "0.5"));
+        moveCloser = Double.parseDouble(pref.getString("moveCloser", "0.6"));
+        moveFurther = Double.parseDouble(pref.getString("moveFurther", "0.8"));
+
+        binding.sequreFramePercentage.setText("" + framePercentage);
+        binding.sequreFrameRatio.setText("" + frameRatio);
+        binding.sequreMoveCloser.setText("" + moveCloser);
+        binding.sequreMoveFurther.setText("" + moveFurther);
+
+        TextWatcher textWatcher = new TextWatcher() {
+            @Override
+            public void beforeTextChanged(CharSequence charSequence, int i, int i1, int i2) {
+
+            }
+
+            @Override
+            public void onTextChanged(CharSequence charSequence, int i, int i1, int i2) {
+
+            }
+
+            @Override
+            public void afterTextChanged(Editable editable) {
+                try {
+                    framePercentage = Double.parseDouble(binding.sequreFramePercentage.getText().toString());
+                    pref.edit().putString("framePercentage", "" + framePercentage).apply();
+                } catch (Exception e) {
+                    e.printStackTrace();
+                }
+                try {
+                    frameRatio = Double.parseDouble(binding.sequreFrameRatio.getText().toString());
+                    pref.edit().putString("frameRatio", "" + frameRatio).apply();
+                } catch (Exception e) {
+                    e.printStackTrace();
+                }
+                try {
+                    moveCloser = Double.parseDouble(binding.sequreMoveCloser.getText().toString());
+                    pref.edit().putString("moveCloser", "" + moveCloser).apply();
+                } catch (Exception e) {
+                    e.printStackTrace();
+                }
+                try {
+                    moveFurther = Double.parseDouble(binding.sequreMoveFurther.getText().toString());
+                    pref.edit().putString("moveFurther", "" + moveFurther).apply();
+                } catch (Exception e) {
+                    e.printStackTrace();
+                }
+                resized = false;
+            }
+        };
+        binding.sequreFramePercentage.addTextChangedListener(textWatcher);
+        binding.sequreFrameRatio.addTextChangedListener(textWatcher);
+        binding.sequreMoveCloser.addTextChangedListener(textWatcher);
+        binding.sequreMoveFurther.addTextChangedListener(textWatcher);
     }
 
     private void initTensorFlow() {
@@ -240,8 +308,7 @@ public class Sequre extends AppCompatActivity {
     }
 
     private void detect(ImageProxy imageProxy) {
-        if (processing == null && objectDetector != null) {
-            processing = System.currentTimeMillis();
+        if (objectDetector != null) {
             log("preparing image");
             ImageProcessor.Builder builder = new ImageProcessor.Builder();
             ImageProcessor imageProcessor = builder.build();
@@ -279,7 +346,7 @@ public class Sequre extends AppCompatActivity {
             log("TensorFlow: detecting objects");
             TensorImage image = imageProcessor.process(TensorImage.fromBitmap(imageBuffer));
 
-//            boundingBoxs.clear();
+            boundingBoxs.clear();
             List<Detection> detections = objectDetector.detect(image);
             if (detections.size() > 0) {
                 Size size = new Size(imageProxy.getHeight(), imageProxy.getWidth());
@@ -293,30 +360,33 @@ public class Sequre extends AppCompatActivity {
 //                }
                 RectF boundingBox = transform(detections.get(0).getBoundingBox());
 
-                double height = size.getHeight() * percentage;
-                double width = height * ratio;
+                double height = size.getHeight() * framePercentage;
+                double width = height * frameRatio;
 
                 double vertical = (size.getHeight() - height) / 2;
                 double horizontal = (size.getWidth() - width) / 2;
 //                log(detections.size() + " : " + size.getWidth() + "; " + size.getHeight() + ";" + horizontal + "; " + vertical + "; " + width + "; " + height + " boundingBox: " + boundingBox.left + "; " + boundingBox.top + "; " + boundingBox.right + "; " + boundingBox.bottom + "; " + boundingBox.width() + "; " + boundingBox.height());
                 if (!(boundingBox.left >= horizontal && boundingBox.right <= horizontal + width &&
                         boundingBox.top >= vertical && boundingBox.bottom <= vertical + height)) {
-                    eventColor = Color.GREEN;
+//                    eventColor = Color.GREEN;
                     eventWidth = 10;
+                    binding.sequreInfo.setVisibility(View.GONE);
                     binding.sequreInfo.setText(R.string.text_place_qr_inside_frame);
                     mask.invalidate();
                     processing = null;
                 } else {
                     double percentage = boundingBox.width() / width;
                     if (percentage < moveCloser) {
-                        eventColor = Color.GREEN;
+//                        eventColor = Color.GREEN;
                         eventWidth = 10;
+                        binding.sequreInfo.setVisibility(View.VISIBLE);
                         binding.sequreInfo.setText(R.string.text_move_closer);
                         mask.invalidate();
                         processing = null;
                     } else if (percentage > 0.8) {
-                        eventColor = Color.GREEN;
+//                        eventColor = Color.GREEN;
                         eventWidth = 10;
+                        binding.sequreInfo.setVisibility(View.VISIBLE);
                         binding.sequreInfo.setText(R.string.text_move_further);
                         mask.invalidate();
                         processing = null;
@@ -335,9 +405,11 @@ public class Sequre extends AppCompatActivity {
                             }
                             double average = total / distancesLength;
                             eventColor = Color.GREEN;
-                            eventWidth = 20;
+//                            eventWidth = 20;
+                            binding.sequreInfo.setVisibility(View.VISIBLE);
                             binding.sequreInfo.setText(R.string.text_hold_steady);
                             mask.invalidate();
+                            timelines[1] = System.currentTimeMillis();
 //                            processing = null;
                             if (average <= distancesMax) {
                                 // capture
@@ -349,6 +421,7 @@ public class Sequre extends AppCompatActivity {
                                         new Thread() {
                                             @Override
                                             public void run() {
+                                                timelines[2] = System.currentTimeMillis();
                                                 detect2(image);
                                                 image.close();
                                             }
@@ -373,10 +446,13 @@ public class Sequre extends AppCompatActivity {
             } else {
                 eventColor = Color.GRAY;
                 eventWidth = 10;
+                binding.sequreInfo.setVisibility(View.GONE);
                 binding.sequreInfo.setText(R.string.text_find_qr);
                 mask.invalidate();
                 processing = null;
             }
+        } else {
+            processing = null;
         }
     }
 
@@ -427,7 +503,6 @@ public class Sequre extends AppCompatActivity {
                             save(resized);
                         }
                         finish();
-
                     } else {
                         save(resized);
                         log("TensorFlow: no classification found");
@@ -491,9 +566,8 @@ public class Sequre extends AppCompatActivity {
         binding.sequrePreviews.requestLayout();
         resized = true;
 
-        ratio = 2.0 / 4.0;
-        height = params.height * percentage;
-        width = height * ratio;
+        height = params.height * framePercentage;
+        width = height * frameRatio;
 
 
         vertical = (params.height - height) / 2;
@@ -530,15 +604,18 @@ public class Sequre extends AppCompatActivity {
 //                // draw boundingBox
 //                paint.setColor(Color.GREEN);
 //                for (RectF boundingBox : boundingBoxs) {
-//                    canvas.drawRect(boundingBox.left, boundingBox.top, boundingBox.left + boundingBox.width(), boundingBox.top + iw / 1.5f, paint);
-//                    canvas.drawRect(boundingBox.left, boundingBox.top, boundingBox.left + iw / 1.5f, boundingBox.top + boundingBox.height(), paint);
+//                    canvas.drawRect(boundingBox.left, boundingBox.top, boundingBox.left + boundingBox.width(), boundingBox.top + eventWidth / 2f, paint);
+//                    canvas.drawRect(boundingBox.left, boundingBox.top, boundingBox.left + eventWidth / 2f, boundingBox.top + boundingBox.height(), paint);
 //
-//                    canvas.drawRect(boundingBox.right, boundingBox.bottom, boundingBox.right - boundingBox.width(), boundingBox.bottom - iw / 1.5f, paint);
-//                    canvas.drawRect(boundingBox.right, boundingBox.bottom, boundingBox.right - iw / 1.5f, boundingBox.bottom - boundingBox.height(), paint);
+//                    canvas.drawRect(boundingBox.right, boundingBox.bottom, boundingBox.right - boundingBox.width(), boundingBox.bottom - eventWidth / 2f, paint);
+//                    canvas.drawRect(boundingBox.right, boundingBox.bottom, boundingBox.right - eventWidth / 2f, boundingBox.bottom - boundingBox.height(), paint);
 //                }
             }
         };
 
+        if (binding.sequrePreviews.getChildCount() > 1) {
+            binding.sequrePreviews.removeViewAt(1);
+        }
         binding.sequrePreviews.addView(mask, new RelativeLayout.LayoutParams(binding.sequrePreviews.getWidth(), binding.sequrePreviews.getHeight()));
     }
 
@@ -604,12 +681,23 @@ public class Sequre extends AppCompatActivity {
     @Override
     public void finish() {
         super.finish();
-        CALLBACK.onResult(result);
-        try {
-            watcher.cancel();
-            watcher = null;
-        } catch (Exception e) {
-            e.printStackTrace();
+        if (!FINISHED) {
+            FINISHED = true ;
+            timelines[3] = System.currentTimeMillis();
+            if (timelines[0] != null && timelines[1] != null && timelines[2] != null && timelines[3] != null) {
+                String timeline = String.format("%d - %s ms - started\n", timelines[0], (timelines[0] - timelines[0]) / 1000.0);
+                timeline += String.format("%d - %s ms - hold steady\n", timelines[1], (timelines[1] - timelines[0]) / 1000.0);
+                timeline += String.format("%d - %s ms - captured\n", timelines[2], (timelines[2] - timelines[0]) / 1000.0);
+                timeline += String.format("%d - %s ms - finish", timelines[3], (timelines[3] - timelines[0]) / 1000.0);
+                result.timeline = timeline;
+            }
+            CALLBACK.onResult(result);
+            try {
+                watcher.cancel();
+                watcher = null;
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
         }
     }
 
@@ -713,14 +801,16 @@ public class Sequre extends AppCompatActivity {
             validate(new Callback() {
                 @Override
                 void on() {
-                    Sequre.CALLBACK = callback;
+                    FINISHED = false;
+                    CALLBACK = callback;
                     CONTEXT.startActivity(new Intent(CONTEXT, Sequre.class));
                 }
             });
         } else if (message != null) {
             Utils.alert(CONTEXT, CONTEXT.getString(R.string.app_name), message);
         } else {
-            Sequre.CALLBACK = callback;
+            FINISHED = false;
+            CALLBACK = callback;
             CONTEXT.startActivity(new Intent(CONTEXT, Sequre.class));
         }
     }

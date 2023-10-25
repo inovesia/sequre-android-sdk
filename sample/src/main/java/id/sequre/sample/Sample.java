@@ -30,6 +30,7 @@ public class Sample extends AppCompatActivity {
             item.resultMessage.setText(result.getMessage() == null ? "" : result.getMessage());
             item.resultQr.setText(result.getQr() == null ? "" : result.getQr());
             item.resultScore.setText(result.getScore() == null ? "" : (String.format("%s", result.getScore())).substring(0, 4));
+            item.resultTimeline.setText(result.getTimeline() == null ? "" : result.getTimeline());
             runOnUiThread(() -> binding.results.addView(item.getRoot(), 0));
         }));
     }

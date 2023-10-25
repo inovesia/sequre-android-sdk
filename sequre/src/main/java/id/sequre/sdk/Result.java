@@ -4,6 +4,7 @@ public class Result {
     protected Status status;
     protected Float score;
     protected String message;
+    protected String timeline;
     protected String qr;
 
     public Result() {
@@ -20,6 +21,10 @@ public class Result {
 
     public String getMessage() {
         return message;
+    }
+
+    public String getTimeline() {
+        return timeline;
     }
 
     public String getQr() {
