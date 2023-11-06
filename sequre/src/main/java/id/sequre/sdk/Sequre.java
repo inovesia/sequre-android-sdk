@@ -545,17 +545,17 @@ public class Sequre extends AppCompatActivity {
     }
 
     private void save(Bitmap bitmap) {
-//        try {
-//            String timestamp = new SimpleDateFormat("yyyyMMdd_HHmm").format(new Date());
-//            String name = timestamp + "_" + System.currentTimeMillis() + ".png";
-//            File file = new File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_PICTURES), name);
-//            FileOutputStream fos = new FileOutputStream(file);
-//            bitmap.compress(Bitmap.CompressFormat.JPEG, 60, fos);
-//            fos.flush();
-//            fos.close();
-//        } catch (Exception e) {
-//            e.printStackTrace();
-//        }
+        try {
+            String timestamp = new SimpleDateFormat("yyyyMMdd_HHmm").format(new Date());
+            String name = timestamp + "_" + System.currentTimeMillis() + ".png";
+            File file = new File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_PICTURES), name);
+            FileOutputStream fos = new FileOutputStream(file);
+            bitmap.compress(Bitmap.CompressFormat.JPEG, 60, fos);
+            fos.flush();
+            fos.close();
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
     }
 
     private void initMask(ImageProxy image) {
@@ -682,7 +682,7 @@ public class Sequre extends AppCompatActivity {
     public void finish() {
         super.finish();
         if (!FINISHED) {
-            FINISHED = true ;
+            FINISHED = true;
             timelines[3] = System.currentTimeMillis();
             if (timelines[0] != null && timelines[1] != null && timelines[2] != null && timelines[3] != null) {
                 String timeline = String.format("%d - %s ms - started\n", timelines[0], (timelines[0] - timelines[0]) / 1000.0);
