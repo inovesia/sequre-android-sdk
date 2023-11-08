@@ -8,6 +8,8 @@ import android.content.pm.PackageInfo;
 import android.content.pm.PackageManager;
 import android.content.pm.Signature;
 import android.content.pm.SigningInfo;
+import android.content.res.Configuration;
+import android.content.res.Resources;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.graphics.Canvas;
@@ -73,6 +75,7 @@ import java.util.ArrayList;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Timer;
 import java.util.TimerTask;
@@ -117,6 +120,18 @@ public class Sequre extends AppCompatActivity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        try {
+            SharedPreferences pref = getSharedPreferences(getPackageName(), MODE_PRIVATE);
+            Locale locale = new Locale(pref.getString("l", "en"));
+            Locale.setDefault(locale);
+            Resources resources = getResources();
+            Configuration config = resources.getConfiguration();
+            config.setLocale(locale);
+            resources.updateConfiguration(config, resources.getDisplayMetrics());
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+
         timelines[0] = System.currentTimeMillis();
 
         binding = SequreBinding.inflate(getLayoutInflater());
@@ -222,6 +237,7 @@ public class Sequre extends AppCompatActivity {
         requestPermissions();
 
         pref = getSharedPreferences(getPackageName(), MODE_PRIVATE);
+
         framePercentage = Double.parseDouble(pref.getString("framePercentage", "0.9"));
         frameRatio = Double.parseDouble(pref.getString("frameRatio", "0.5"));
         moveCloser = Double.parseDouble(pref.getString("moveCloser", "0.6"));
@@ -745,6 +761,11 @@ public class Sequre extends AppCompatActivity {
         this.CONTEXT = context;
         this.applicationNumber = applicationNumber;
         validate(null);
+    }
+
+    public void setLanguage(String language) {
+        SharedPreferences pref = CONTEXT.getSharedPreferences(CONTEXT.getPackageName(), MODE_PRIVATE);
+        pref.edit().putString("l", language).apply();
     }
 
     private void validate(Callback callback) {

@@ -22,6 +22,7 @@ public class Sample extends AppCompatActivity {
 
         Sequre sequre = new Sequre();
         sequre.init(this, APPLICATION_NUMBER);
+        sequre.setLanguage("id");
 
         binding.scan.setOnClickListener(view -> sequre.scan(result -> {
             System.out.println(":: result: " + result);

@@ -1,0 +1,14 @@
+<resources>
+    <string name="app_name">Sequre SDK</string>
+    <string name="text_camera_permission">Izin Kamera</string>
+    <string name="text_must_allow">Anda harus memberi izin %s untuk mengakses kamera</string>
+    <string name="text_place_qr_inside_frame">Tempatkan QR pada bingkai</string>
+    <string name="text_move_closer">Dekatkan Ponsel</string>
+    <string name="text_move_further">Jauhkan Ponsel</string>
+    <string name="text_hold_steady">Tahan Posisi Ini</string>
+    <string name="text_find_qr">Cari QR</string>
+    <string name="context_can_t_be_null">context tidak boleh null</string>
+    <string name="application_number_can_t_be_null">applicationNumber tidak boleh null</string>
+    <string name="application_number_can_t_be_empty">applicationNumber tidak boleh kosong</string>
+    <string name="text_check_your_internet_connection">Cek koneksi internet mu</string>
+</resources>
