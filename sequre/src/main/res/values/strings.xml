@@ -11,4 +11,6 @@
     <string name="application_number_can_t_be_null">applicationNumber can\'t be null</string>
     <string name="application_number_can_t_be_empty">applicationNumber can\'t be empty</string>
     <string name="text_check_your_internet_connection">Check your internet connection</string>
+    <string name="text_adjust_qr_to_the_area">Adjust QR to the area</string>
+    <string name="text_scanning_will_begin_automatically">Scanning will begin automatically</string>
 </resources>

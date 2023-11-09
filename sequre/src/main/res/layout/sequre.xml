@@ -40,7 +40,7 @@
             android:layout_height="wrap_content"
             android:fontFamily="@font/proxima_nova_bold"
             android:gravity="center"
-            android:text="Adjust QR to the area"
+            android:text="@string/text_adjust_qr_to_the_area"
             android:textColor="@color/white"
             android:textSize="16sp" />
 
@@ -49,7 +49,7 @@
             android:layout_height="wrap_content"
             android:fontFamily="@font/proxima_nova_regular"
             android:gravity="center"
-            android:text="Scanning will begin automatically"
+            android:text="@string/text_scanning_will_begin_automatically"
             android:textColor="@color/white"
             android:textSize="12sp" />
     </LinearLayout>
