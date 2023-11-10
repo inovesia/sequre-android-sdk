@@ -11,6 +11,6 @@
     <string name="application_number_can_t_be_null">applicationNumber tidak dapat null</string>
     <string name="application_number_can_t_be_empty">applicationNumber tidak boleh kosong</string>
     <string name="text_check_your_internet_connection">Periksa koneksi internet Anda</string>
-    <string name="text_adjust_qr_to_the_area">Sesuaikan QR ke area</string>
-    <string name="text_scanning_will_begin_automatically">Pemindaian akan dimulai secara otomatis</string>
+    <string name="text_adjust_qr_to_the_area">Posisikan QR Code ke dalam Area</string>
+    <string name="text_scanning_will_begin_automatically">Scanning akan dimulai secara otomatis</string>
 </resources>
