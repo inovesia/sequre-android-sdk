@@ -348,7 +348,7 @@ public class Sequre extends AppCompatActivity {
             } catch (Exception e) {
                 e.printStackTrace();
             }
-            if (result.qr == null) {
+            if (result.qr == null || !result.qr.toLowerCase().startsWith("http")) {
                 processing = null;
                 return;
             }
