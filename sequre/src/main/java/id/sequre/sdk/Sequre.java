@@ -228,8 +228,12 @@ public class Sequre extends AppCompatActivity {
         watcher.schedule(new TimerTask() {
             @Override
             public void run() {
-                if (processing != null && System.currentTimeMillis() - processing > 2000) {
-                    processing = null;
+                try {
+                    if (processing != null && System.currentTimeMillis() - processing > 2000) {
+                        processing = null;
+                    }
+                } catch (Exception e) {
+                    e.printStackTrace();
                 }
             }
         }, 1000, 1000);
