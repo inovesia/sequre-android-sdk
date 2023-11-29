@@ -387,7 +387,21 @@ public class Sequre extends AppCompatActivity {
                 double horizontal = (size.getWidth() - width) / 2;
 //                log(detections.size() + " : " + size.getWidth() + "; " + size.getHeight() + ";" + horizontal + "; " + vertical + "; " + width + "; " + height + " boundingBox: " + boundingBox.left + "; " + boundingBox.top + "; " + boundingBox.right + "; " + boundingBox.bottom + "; " + boundingBox.width() + "; " + boundingBox.height());
                 double percentage = boundingBox.width() / width;
-                if (!(boundingBox.left >= horizontal && boundingBox.right <= horizontal + width &&
+                if (percentage < moveCloser) {
+//                    eventColor = Color.GREEN;
+                    eventWidth = 10;
+                    binding.sequreInfo.setVisibility(View.VISIBLE);
+                    binding.sequreInfo.setText(R.string.text_move_closer);
+                    mask.invalidate();
+                    processing = null;
+                } else if (percentage > 0.8) {
+//                    eventColor = Color.GREEN;
+                    eventWidth = 10;
+                    binding.sequreInfo.setVisibility(View.VISIBLE);
+                    binding.sequreInfo.setText(R.string.text_move_further);
+                    mask.invalidate();
+                    processing = null;
+                } else if (!(boundingBox.left >= horizontal && boundingBox.right <= horizontal + width &&
                         boundingBox.top >= vertical && boundingBox.bottom <= vertical + height)) {
 //                    eventColor = Color.GREEN;
                     eventWidth = 10;
@@ -396,71 +410,55 @@ public class Sequre extends AppCompatActivity {
                     mask.invalidate();
                     processing = null;
                 } else {
-                    if (percentage < moveCloser) {
-//                        eventColor = Color.GREEN;
-                        eventWidth = 10;
-                        binding.sequreInfo.setVisibility(View.VISIBLE);
-                        binding.sequreInfo.setText(R.string.text_move_closer);
-                        mask.invalidate();
-                        processing = null;
-                    } else if (percentage > 0.8) {
-//                        eventColor = Color.GREEN;
-                        eventWidth = 10;
-                        binding.sequreInfo.setVisibility(View.VISIBLE);
-                        binding.sequreInfo.setText(R.string.text_move_further);
-                        mask.invalidate();
-                        processing = null;
-                    } else {
-                        double distance = Math.sqrt(Math.pow(boundingBox.left - left, 2) + Math.pow(boundingBox.top - top, 2));
-                        left = boundingBox.left;
-                        top = boundingBox.top;
-                        if (distances.size() >= distancesLength) {
-                            distances.remove(0);
+                    double distance = Math.sqrt(Math.pow(boundingBox.left - left, 2) + Math.pow(boundingBox.top - top, 2));
+                    left = boundingBox.left;
+                    top = boundingBox.top;
+                    if (distances.size() >= distancesLength) {
+                        distances.remove(0);
+                    }
+                    distances.add(distance);
+                    if (distances.size() == distancesLength) {
+                        double total = 0;
+                        for (double distance_ : distances) {
+                            total += distance_;
                         }
-                        distances.add(distance);
-                        if (distances.size() == distancesLength) {
-                            double total = 0;
-                            for (double distance_ : distances) {
-                                total += distance_;
-                            }
-                            double average = total / distancesLength;
-                            eventColor = Color.GREEN;
+                        double average = total / distancesLength;
+                        eventColor = Color.GREEN;
 //                            eventWidth = 20;
-                            binding.sequreInfo.setVisibility(View.VISIBLE);
-                            binding.sequreInfo.setText(R.string.text_hold_steady);
-                            mask.invalidate();
-                            timelines[1] = System.currentTimeMillis();
+                        binding.sequreInfo.setVisibility(View.VISIBLE);
+                        binding.sequreInfo.setText(R.string.text_hold_steady);
+                        mask.invalidate();
+                        timelines[1] = System.currentTimeMillis();
 //                            processing = null;
-                            if (average <= distancesMax) {
-                                // capture
-                                log("takePicture");
-                                imageCapture.takePicture(ContextCompat.getMainExecutor(Sequre.this), new ImageCapture.OnImageCapturedCallback() {
-                                    @Override
-                                    public void onCaptureSuccess(@NonNull ImageProxy image) {
-                                        super.onCaptureSuccess(image);
-                                        new Thread() {
-                                            @Override
-                                            public void run() {
-                                                timelines[2] = System.currentTimeMillis();
-                                                detect2(image);
-                                                image.close();
-                                            }
-                                        }.start();
+                        if (average <= distancesMax) {
+                            // capture
+                            log("takePicture");
+                            imageCapture.takePicture(ContextCompat.getMainExecutor(Sequre.this), new ImageCapture.OnImageCapturedCallback() {
+                                @Override
+                                public void onCaptureSuccess(@NonNull ImageProxy image) {
+                                    super.onCaptureSuccess(image);
+                                    new Thread() {
+                                        @Override
+                                        public void run() {
+                                            timelines[2] = System.currentTimeMillis();
+                                            detect2(image);
+                                            image.close();
+                                        }
+                                    }.start();
 
-                                    }
+                                }
 
-                                    @Override
-                                    public void onError(@NonNull ImageCaptureException exception) {
-                                        super.onError(exception);
-                                        processing = null;
-                                    }
-                                });
-                            } else {
-                                processing = null;
-                            }
+                                @Override
+                                public void onError(@NonNull ImageCaptureException exception) {
+                                    super.onError(exception);
+                                    processing = null;
+                                }
+                            });
                         } else {
                             processing = null;
                         }
+                    } else {
+                        processing = null;
                     }
                 }
             } else {
