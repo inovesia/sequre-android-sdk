@@ -386,16 +386,16 @@ public class Sequre extends AppCompatActivity {
                 double vertical = (size.getHeight() - height) / 2;
                 double horizontal = (size.getWidth() - width) / 2;
 //                log(detections.size() + " : " + size.getWidth() + "; " + size.getHeight() + ";" + horizontal + "; " + vertical + "; " + width + "; " + height + " boundingBox: " + boundingBox.left + "; " + boundingBox.top + "; " + boundingBox.right + "; " + boundingBox.bottom + "; " + boundingBox.width() + "; " + boundingBox.height());
+                double percentage = boundingBox.width() / width;
                 if (!(boundingBox.left >= horizontal && boundingBox.right <= horizontal + width &&
                         boundingBox.top >= vertical && boundingBox.bottom <= vertical + height)) {
 //                    eventColor = Color.GREEN;
                     eventWidth = 10;
-                    binding.sequreInfo.setVisibility(View.GONE);
+                    binding.sequreInfo.setVisibility(View.VISIBLE);
                     binding.sequreInfo.setText(R.string.text_place_qr_inside_frame);
                     mask.invalidate();
                     processing = null;
                 } else {
-                    double percentage = boundingBox.width() / width;
                     if (percentage < moveCloser) {
 //                        eventColor = Color.GREEN;
                         eventWidth = 10;

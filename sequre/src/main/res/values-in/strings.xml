@@ -2,7 +2,7 @@
     <string name="app_name">Sequre SDK</string>
     <string name="text_camera_permission">Izinkan kamera</string>
     <string name="text_must_allow">You must allow %s to access your camera</string>
-    <string name="text_place_qr_inside_frame">Tempatkan QR pada frame</string>
+    <string name="text_place_qr_inside_frame">Tempatkan QR di dalam frame</string>
     <string name="text_move_closer">Dekatkan ke QR</string>
     <string name="text_move_further">Jauhkan dari QR</string>
     <string name="text_hold_steady">Pertahankan Posisi</string>
