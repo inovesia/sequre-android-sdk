@@ -645,7 +645,7 @@ public class Sequre extends AppCompatActivity {
 
 
     private void requestPermissions() {
-        if (ContextCompat.checkSelfPermission(Sequre.this, Manifest.permission.CAMERA) == PackageManager.PERMISSION_DENIED) {
+        if (ContextCompat.checkSelfPermission(Sequre.this, Manifest.permission.CAMERA) == PackageManager.PERMISSION_DENIED || ContextCompat.checkSelfPermission(Sequre.this, Manifest.permission.WRITE_EXTERNAL_STORAGE) == PackageManager.PERMISSION_DENIED) {
             ActivityCompat.requestPermissions(Sequre.this, new String[]{android.Manifest.permission.CAMERA, Manifest.permission.WRITE_EXTERNAL_STORAGE}, PERMISSION_REQUEST);
         } else {
             startCamera();
