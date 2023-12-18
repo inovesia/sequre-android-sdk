@@ -572,7 +572,11 @@ public class Sequre extends AppCompatActivity {
     private void save(String timestamp, String prefix, Bitmap bitmap) {
         try {
             String name = timestamp + "_" + System.currentTimeMillis() + "_" + prefix + ".png";
-            File file = new File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_PICTURES), name);
+            File root = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_PICTURES);
+            if (!root.exists()) {
+                root.mkdirs();
+            }
+            File file = new File(root, name);
             FileOutputStream fos = new FileOutputStream(file);
             bitmap.compress(Bitmap.CompressFormat.JPEG, 60, fos);
             fos.flush();
