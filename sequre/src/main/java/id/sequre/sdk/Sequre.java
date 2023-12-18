@@ -1,6 +1,7 @@
 package id.sequre.sdk;
 
 import android.Manifest;
+import android.animation.ValueAnimator;
 import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
@@ -98,6 +99,7 @@ public class Sequre extends AppCompatActivity {
     private ImageCapture imageCapture;
     private Camera camera;
     private boolean resized, torch;
+    private float zoom = 1;
     private double moveCloser = 0.6, moveFurther = 0.8, distancesLength = 3, distancesMax = 40, framePercentage = 0.8, frameRatio = 1.0 / 2.0, ratio, left, top, width, height, vertical, horizontal;
     private int eventColor = Color.GRAY;
     private int eventWidth = 10;
@@ -111,6 +113,7 @@ public class Sequre extends AppCompatActivity {
     private View mask;
 
     private Long processing;
+    private boolean zooming;
     private Timer watcher;
 
     private MultiFormatReader reader;
@@ -182,7 +185,7 @@ public class Sequre extends AppCompatActivity {
                 @Override
                 public void run() {
                     log("processing preview");
-                    if (processing == null) {
+                    if (processing == null && !zooming) {
                         processing = System.currentTimeMillis();
                         detect(imageProxy);
                     }
@@ -394,6 +397,9 @@ public class Sequre extends AppCompatActivity {
                     binding.sequreInfo.setText(R.string.text_move_closer);
                     mask.invalidate();
                     processing = null;
+                    if (zoom < camera.getCameraInfo().getZoomState().getValue().getMaxZoomRatio()) {
+                        zoomTo(zoom + 1);
+                    }
                 } else if (percentage > 0.8) {
 //                    eventColor = Color.GREEN;
                     eventWidth = 10;
@@ -401,6 +407,7 @@ public class Sequre extends AppCompatActivity {
                     binding.sequreInfo.setText(R.string.text_move_further);
                     mask.invalidate();
                     processing = null;
+                    zoomTo(zoom - 1);
                 } else if (!(boundingBox.left >= horizontal && boundingBox.right <= horizontal + width &&
                         boundingBox.top >= vertical && boundingBox.bottom <= vertical + height)) {
 //                    eventColor = Color.GREEN;
@@ -488,6 +495,7 @@ public class Sequre extends AppCompatActivity {
             bitmap = rotate(bitmap);
             TensorImage image = imageProcessor.process(TensorImage.fromBitmap(bitmap));
             List<Detection> detections = objectDetectorV2.detect(image);
+            String timestamp = new SimpleDateFormat("yyyyMMdd_HHmm").format(new Date());
             if (detections.size() > 0) {
                 try {
                     RectF boundingBox = detections.get(0).getBoundingBox();
@@ -515,14 +523,13 @@ public class Sequre extends AppCompatActivity {
                         } else {
                             result.status = Status.Fake;
                         }
-
-                        if (result.status.equals(Status.Fake)) {
-                            save(bitmap);
-                            save(resized);
-                        }
+                        String prefix = "" + result.status.toString().toLowerCase() + "_" + ("" + result.score).substring(2, 4);
+                        save(timestamp, "bitmap_" + prefix, bitmap);
+                        save(timestamp, "resized_" + prefix, resized);
                         finish();
                     } else {
-                        save(resized);
+                        save(timestamp, "bitmap_no_classification_found", bitmap);
+                        save(timestamp, "resized_no_classification_found", resized);
                         log("TensorFlow: no classification found");
                         processing = null;
                     }
@@ -532,7 +539,7 @@ public class Sequre extends AppCompatActivity {
                     log("TensorFlow: error: " + e.toString());
                 }
             } else {
-                save(bitmap);
+                save(timestamp, "bitmap_no_object_found", bitmap);
                 log("TensorFlow: no object found");
                 processing = null;
             }
@@ -562,18 +569,17 @@ public class Sequre extends AppCompatActivity {
         return new RectF(box.top, box.left, box.bottom, box.right);
     }
 
-    private void save(Bitmap bitmap) {
-//        try {
-//            String timestamp = new SimpleDateFormat("yyyyMMdd_HHmm").format(new Date());
-//            String name = timestamp + "_" + System.currentTimeMillis() + ".png";
-//            File file = new File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_PICTURES), name);
-//            FileOutputStream fos = new FileOutputStream(file);
-//            bitmap.compress(Bitmap.CompressFormat.JPEG, 60, fos);
-//            fos.flush();
-//            fos.close();
-//        } catch (Exception e) {
-//            e.printStackTrace();
-//        }
+    private void save(String timestamp, String prefix, Bitmap bitmap) {
+        try {
+            String name = timestamp + "_" + System.currentTimeMillis() + "_" + prefix + ".png";
+            File file = new File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_PICTURES), name);
+            FileOutputStream fos = new FileOutputStream(file);
+            bitmap.compress(Bitmap.CompressFormat.JPEG, 60, fos);
+            fos.flush();
+            fos.close();
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
     }
 
     private void initMask(ImageProxy image) {
@@ -665,9 +671,25 @@ public class Sequre extends AppCompatActivity {
                     camera.getCameraInfo().getCameraState().removeObservers(Sequre.this);
                     camera.getCameraInfo().getCameraState().observe(Sequre.this, cameraState -> {
                         if (cameraState.getType().equals(CameraState.Type.OPEN)) {
+//                            binding.sequrePreview.postDelayed(() -> {
+//                                float zoomRatio = Math.min(4f, camera.getCameraInfo().getZoomState().getValue().getMaxZoomRatio());
+//                                camera.getCameraControl().setZoomRatio(zoomRatio);
+//                            }, 100);
+
                             binding.sequrePreview.postDelayed(() -> {
-                                float zoomRatio = Math.min(4f, camera.getCameraInfo().getZoomState().getValue().getMaxZoomRatio());
-                                camera.getCameraControl().setZoomRatio(zoomRatio);
+                                ValueAnimator animator = ValueAnimator.ofFloat(1f, 1.5f, 2f, 2.5f, 3f, 4.5f, 4f);
+                                animator.setDuration(500);
+                                animator.addUpdateListener(valueAnimator -> {
+                                    zoom = (float) valueAnimator.getAnimatedValue();
+                                    if (zoom <= camera.getCameraInfo().getZoomState().getValue().getMaxZoomRatio()) {
+                                        camera.getCameraControl().setZoomRatio(zoom);
+                                    }
+                                    if (zoom == 4f) {
+                                        zooming = false;
+                                    }
+                                });
+                                zooming = true;
+                                animator.start();
                             }, 100);
                         }
                     });
@@ -679,6 +701,33 @@ public class Sequre extends AppCompatActivity {
                 }
             }
         }, ContextCompat.getMainExecutor(Sequre.this));
+    }
+
+
+    private void zoomTo(float target) {
+        if (zoom != target && target <= camera.getCameraInfo().getZoomState().getValue().getMaxZoomRatio()) {
+            float[] values = new float[5];
+            for (int i = 1; i <= 5; i++) {
+                if (target > zoom) {
+                    values[i - 1] = zoom + i * 0.2f;
+                } else {
+                    values[i - 1] = zoom - i * 0.2f;
+                }
+            }
+            ValueAnimator animator = ValueAnimator.ofFloat(values);
+            animator.setDuration(500);
+            animator.addUpdateListener(valueAnimator -> {
+                zoom = (float) valueAnimator.getAnimatedValue();
+                if (zoom <= camera.getCameraInfo().getZoomState().getValue().getMaxZoomRatio()) {
+                    camera.getCameraControl().setZoomRatio(zoom);
+                }
+                if (zoom == target) {
+                    zooming = false;
+                }
+            });
+            zooming = true;
+            animator.start();
+        }
     }
 
     @Override
