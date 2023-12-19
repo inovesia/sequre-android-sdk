@@ -517,6 +517,7 @@ public class Sequre extends AppCompatActivity {
                         if (category.getLabel().equals("genuine")) {
                             if (category.getScore() > 0.85f) {
                                 result.status = Status.Genuine;
+                                save(timestamp, "bitmap_genuine_" + ("" + result.score).substring(2, 4), bitmap);
                             } else {
                                 result.status = Status.Fake;
                                 result.message = "poor_image_quality";
@@ -524,13 +525,13 @@ public class Sequre extends AppCompatActivity {
                         } else {
                             result.status = Status.Fake;
                         }
-                        String prefix = "" + result.status.toString().toLowerCase() + "_" + ("" + result.score).substring(2, 4);
-                        save(timestamp, "bitmap_" + prefix, bitmap);
-                        save(timestamp, "resized_" + prefix, resized);
+//                        String prefix = "" + result.status.toString().toLowerCase() + "_" + ("" + result.score).substring(2, 4);
+//                        save(timestamp, "bitmap_" + prefix, bitmap);
+//                        save(timestamp, "resized_" + prefix, resized);
                         finish();
                     } else {
-                        save(timestamp, "bitmap_no_classification_found", bitmap);
-                        save(timestamp, "resized_no_classification_found", resized);
+//                        save(timestamp, "bitmap_no_classification_found", bitmap);
+//                        save(timestamp, "resized_no_classification_found", resized);
                         log("TensorFlow: no classification found");
                         processing = null;
                     }
@@ -540,7 +541,7 @@ public class Sequre extends AppCompatActivity {
                     log("TensorFlow: error: " + e.toString());
                 }
             } else {
-                save(timestamp, "bitmap_no_object_found", bitmap);
+//                save(timestamp, "bitmap_no_object_found", bitmap);
                 log("TensorFlow: no object found");
                 processing = null;
             }
