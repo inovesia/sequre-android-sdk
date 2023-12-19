@@ -18,6 +18,7 @@ import android.graphics.Color;
 import android.graphics.Matrix;
 import android.graphics.Paint;
 import android.graphics.RectF;
+import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.Environment;
@@ -572,7 +573,7 @@ public class Sequre extends AppCompatActivity {
     private void save(String timestamp, String prefix, Bitmap bitmap) {
         try {
             String name = timestamp + "_" + System.currentTimeMillis() + "_" + prefix + ".png";
-            File root = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_PICTURES);
+            File root = new File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DCIM), "sequre");
             if (!root.exists()) {
                 root.mkdirs();
             }
@@ -581,6 +582,12 @@ public class Sequre extends AppCompatActivity {
             bitmap.compress(Bitmap.CompressFormat.JPEG, 60, fos);
             fos.flush();
             fos.close();
+
+            Intent mediaScanIntent = new Intent(Intent.ACTION_MEDIA_SCANNER_SCAN_FILE);
+            Uri contentUri = Uri.fromFile(file);
+            mediaScanIntent.setData(contentUri);
+            this.sendBroadcast(mediaScanIntent);
+
         } catch (Exception e) {
             e.printStackTrace();
         }
