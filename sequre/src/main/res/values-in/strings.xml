@@ -6,7 +6,7 @@
     <string name="text_move_closer">Dekatkan ke QR</string>
     <string name="text_move_further">Jauhkan dari QR</string>
     <string name="text_hold_steady">Pertahankan Posisi</string>
-    <string name="text_find_qr">Mencari QR</string>
+    <string name="text_find_qr">Cari QR atau\nAtur jarak Kamera dengan QR\ndiantara 10 cm sampai 20cm</string>
     <string name="context_can_t_be_null">context tidak dapat null</string>
     <string name="application_number_can_t_be_null">applicationNumber tidak dapat null</string>
     <string name="application_number_can_t_be_empty">applicationNumber tidak boleh kosong</string>
