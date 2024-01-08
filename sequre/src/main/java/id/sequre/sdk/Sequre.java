@@ -713,30 +713,31 @@ public class Sequre extends AppCompatActivity {
                     camera.getCameraInfo().getCameraState().removeObservers(Sequre.this);
                     camera.getCameraInfo().getCameraState().observe(Sequre.this, cameraState -> {
                         if (cameraState.getType().equals(CameraState.Type.OPEN)) {
-
-                            if (successZoom != 1.0) {
-                                binding.sequrePreview.postDelayed(() -> {
-                                    float zoomRatio = Math.min(successZoom, camera.getCameraInfo().getZoomState().getValue().getMaxZoomRatio());
-                                    zoom = zoomRatio;
-                                    camera.getCameraControl().setZoomRatio(zoomRatio);
-                                }, 100);
-                            } else {
-                                binding.sequrePreview.postDelayed(() -> {
-                                    ValueAnimator animator = ValueAnimator.ofFloat(1f, 1.5f, 2f, 2.5f, 3f, 4.5f, 4f);
-                                    animator.setDuration(500);
-                                    animator.addUpdateListener(valueAnimator -> {
-                                        zoom = (float) valueAnimator.getAnimatedValue();
-                                        if (zoom <= camera.getCameraInfo().getZoomState().getValue().getMaxZoomRatio()) {
-                                            camera.getCameraControl().setZoomRatio(zoom);
-                                        }
-                                        if (zoom == 4f) {
-                                            zooming = false;
-                                        }
-                                    });
-                                    zooming = true;
-                                    animator.start();
-                                }, 100);
-                            }
+//                            camera.getCameraControl().setZoomRatio(2.0f);
+//                            if (successZoom != 1.0) {
+//                                binding.sequrePreview.postDelayed(() -> {
+//                                    float zoomRatio = Math.min(successZoom, camera.getCameraInfo().getZoomState().getValue().getMaxZoomRatio());
+//                                    zoom = zoomRatio;
+//                                    camera.getCameraControl().setZoomRatio(zoomRatio);
+//                                }, 100);
+//                            } else {
+                            binding.sequrePreview.postDelayed(() -> {
+//                                    ValueAnimator animator = ValueAnimator.ofFloat(1f, 1.5f, 2f, 2.5f, 3f, 3.5f, 4f);
+                                ValueAnimator animator = ValueAnimator.ofFloat(3.2f, 3.4f, 3.6f, 3.8f, 4f);
+                                animator.setDuration(500);
+                                animator.addUpdateListener(valueAnimator -> {
+                                    zoom = (float) valueAnimator.getAnimatedValue();
+                                    if (zoom <= camera.getCameraInfo().getZoomState().getValue().getMaxZoomRatio()) {
+                                        camera.getCameraControl().setZoomRatio(zoom);
+                                    }
+                                    if (zoom == 4f) {
+                                        zooming = false;
+                                    }
+                                });
+                                zooming = true;
+                                animator.start();
+                            }, 100);
+//                            }
                         }
                     });
 

@@ -6,7 +6,7 @@
     <string name="text_move_closer">Move Closer</string>
     <string name="text_move_further">Move Further</string>
     <string name="text_hold_steady">Hold Steady</string>
-    <string name="text_find_qr">Find QR or\nAdjust distance camera and QR\nwithin 10cm to 20 cm</string>
+    <string name="text_find_qr">Find QR or\nAdjust distance camera and QR\nwithin 7cm to 13 cm</string>
     <string name="context_can_t_be_null">context can\'t be null</string>
     <string name="application_number_can_t_be_null">applicationNumber can\'t be null</string>
     <string name="application_number_can_t_be_empty">applicationNumber can\'t be empty</string>
