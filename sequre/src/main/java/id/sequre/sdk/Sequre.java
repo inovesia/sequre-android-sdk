@@ -47,6 +47,7 @@ import androidx.core.content.ContextCompat;
 
 import com.google.android.gms.common.util.ArrayUtils;
 import com.google.android.gms.tflite.client.TfLiteInitializationOptions;
+import com.google.android.gms.tflite.java.TfLite;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.zxing.BarcodeFormat;
 import com.google.zxing.BinaryBitmap;
@@ -57,6 +58,7 @@ import com.google.zxing.RGBLuminanceSource;
 import com.google.zxing.Reader;
 import com.google.zxing.common.HybridBinarizer;
 
+import org.tensorflow.lite.TensorFlowLite;
 import org.tensorflow.lite.support.image.ImageProcessor;
 import org.tensorflow.lite.support.image.TensorImage;
 import org.tensorflow.lite.support.label.Category;
@@ -105,7 +107,7 @@ public class Sequre extends AppCompatActivity {
     private int multiCapture = 0, multiCaptureMax = 5;
     private List<RectF> boundingBoxs = new ArrayList<>();
 
-    private ObjectDetector objectDetector, objectCropper;
+    private ObjectDetector blurClassifier, objectDetector, objectCropper;
     private ImageClassifier imageClassifier;
     private List<Double> distances;
     private Result result;
@@ -331,6 +333,7 @@ public class Sequre extends AppCompatActivity {
         } catch (Exception e) {
             e.printStackTrace();
         }
+
     }
 
     private void detect(ImageProxy imageProxy) {
@@ -350,6 +353,12 @@ public class Sequre extends AppCompatActivity {
 
             LuminanceSource source = new RGBLuminanceSource(imageBuffer.getWidth(), imageBuffer.getHeight(), intArray);
             BinaryBitmap bitmap = new BinaryBitmap(new HybridBinarizer(source));
+
+            TensorImage image = imageProcessor.process(TensorImage.fromBitmap(imageBuffer));
+//            System.out.println(":: blurClassifier: " + blurClassifier);
+//            List<Classifications> classifications = blurClassifier.classify(image);
+//            System.out.println(":: classifications: " + classifications);
+
 
             Reader reader = new MultiFormatReader();// use this otherwise ChecksumException
             try {
@@ -375,7 +384,6 @@ public class Sequre extends AppCompatActivity {
                 return;
             }
             log("TensorFlow: detecting objects");
-            TensorImage image = imageProcessor.process(TensorImage.fromBitmap(imageBuffer));
 
             boundingBoxs.clear();
             List<Detection> detections = objectDetector.detect(image);
@@ -384,6 +392,7 @@ public class Sequre extends AppCompatActivity {
                 Size size = new Size(imageProxy.getHeight(), imageProxy.getWidth());
                 ViewGroup.LayoutParams params = binding.sequrePreviews.getLayoutParams();
                 for (Detection detection : detections) {
+                    System.out.println(":: getScore: " + detection.getCategories().get(0).getScore());
                     RectF boundingBox = detection.getBoundingBox();
                     // scale meet preview size
                     boundingBox = new RectF(size.getWidth() - boundingBox.bottom, boundingBox.left, size.getWidth() - boundingBox.bottom + boundingBox.height(), boundingBox.right);
@@ -400,6 +409,9 @@ public class Sequre extends AppCompatActivity {
 //                log(detections.size() + " : " + size.getWidth() + "; " + size.getHeight() + ";" + horizontal + "; " + vertical + "; " + width + "; " + height + " boundingBox: " + boundingBox.left + "; " + boundingBox.top + "; " + boundingBox.right + "; " + boundingBox.bottom + "; " + boundingBox.width() + "; " + boundingBox.height());
 //                double percentage = boundingBox.width() / width;
                 double percentage = boundingBox.width() / size.getWidth();
+
+                binding.sequrePercentage.setText("" + percentage);
+                
                 if (percentage < moveCloser) {
 //                    eventColor = Color.GREEN;
                     eventWidth = 10;
@@ -723,19 +735,27 @@ public class Sequre extends AppCompatActivity {
 //                            } else {
                             binding.sequrePreview.postDelayed(() -> {
 //                                    ValueAnimator animator = ValueAnimator.ofFloat(1f, 1.5f, 2f, 2.5f, 3f, 3.5f, 4f);
-                                ValueAnimator animator = ValueAnimator.ofFloat(3.2f, 3.4f, 3.6f, 3.8f, 4f);
-                                animator.setDuration(500);
-                                animator.addUpdateListener(valueAnimator -> {
-                                    zoom = (float) valueAnimator.getAnimatedValue();
-                                    if (zoom <= camera.getCameraInfo().getZoomState().getValue().getMaxZoomRatio()) {
-                                        camera.getCameraControl().setZoomRatio(zoom);
-                                    }
-                                    if (zoom == 4f) {
-                                        zooming = false;
-                                    }
-                                });
+//                                ValueAnimator animator = ValueAnimator.ofFloat(3.2f, 3.4f, 3.6f, 3.8f, 4f);
+//                                animator.setDuration(500);
+//                                animator.addUpdateListener(valueAnimator -> {
+//                                    zoom = (float) valueAnimator.getAnimatedValue();
+//                                    if (zoom <= camera.getCameraInfo().getZoomState().getValue().getMaxZoomRatio()) {
+//                                        binding.sequreZoomRatio.setText("" + zoom);
+//                                        camera.getCameraControl().setZoomRatio(zoom);
+//                                    }
+//                                    if (zoom == 4f) {
+//                                        zooming = false;
+//                                    }
+//                                });
+//                                zooming = true;
+//                                animator.start();
+
+                                zoom = 4.0f;
                                 zooming = true;
-                                animator.start();
+                                binding.sequreZoomRatio.setText("" + zoom);
+                                camera.getCameraControl().setZoomRatio(zoom).addListener(() -> {
+                                    zooming = false;
+                                }, getMainExecutor());
                             }, 100);
 //                            }
                         }
@@ -753,27 +773,34 @@ public class Sequre extends AppCompatActivity {
 
     private void zoomTo(float target) {
         if (zoom != target && target <= camera.getCameraInfo().getZoomState().getValue().getMaxZoomRatio()) {
-            float[] values = new float[5];
-            for (int i = 1; i <= 5; i++) {
-                if (target > zoom) {
-                    values[i - 1] = zoom + i * 0.2f;
-                } else {
-                    values[i - 1] = zoom - i * 0.2f;
-                }
-            }
-            ValueAnimator animator = ValueAnimator.ofFloat(values);
-            animator.setDuration(500);
-            animator.addUpdateListener(valueAnimator -> {
-                zoom = (float) valueAnimator.getAnimatedValue();
-                if (zoom <= camera.getCameraInfo().getZoomState().getValue().getMaxZoomRatio()) {
-                    camera.getCameraControl().setZoomRatio(zoom);
-                }
-                if (zoom == target) {
-                    zooming = false;
-                }
-            });
+//            float[] values = new float[5];
+//            for (int i = 1; i <= 5; i++) {
+//                if (target > zoom) {
+//                    values[i - 1] = zoom + i * 0.2f;
+//                } else {
+//                    values[i - 1] = zoom - i * 0.2f;
+//                }
+//            }
+//            ValueAnimator animator = ValueAnimator.ofFloat(values);
+//            animator.setDuration(500);
+//            animator.addUpdateListener(valueAnimator -> {
+//                zoom = (float) valueAnimator.getAnimatedValue();
+//                if (zoom <= camera.getCameraInfo().getZoomState().getValue().getMaxZoomRatio()) {
+//                    binding.sequreZoomRatio.setText("" + zoom);
+//                    camera.getCameraControl().setZoomRatio(zoom);
+//                }
+//                if (zoom == target) {
+//                    zooming = false;
+//                }
+//            });
+//            zooming = true;
+//            animator.start();
             zooming = true;
-            animator.start();
+            zoom = target;
+            binding.sequreZoomRatio.setText("" + zoom);
+            camera.getCameraControl().setZoomRatio(zoom).addListener(() -> {
+                zooming = false;
+            }, getMainExecutor());
         }
     }
 
