@@ -411,7 +411,7 @@ public class Sequre extends AppCompatActivity {
                 double percentage = boundingBox.width() / size.getWidth();
 
                 binding.sequrePercentage.setText("" + percentage);
-                
+
                 if (percentage < moveCloser) {
 //                    eventColor = Color.GREEN;
                     eventWidth = 10;
@@ -726,14 +726,14 @@ public class Sequre extends AppCompatActivity {
                     camera.getCameraInfo().getCameraState().observe(Sequre.this, cameraState -> {
                         if (cameraState.getType().equals(CameraState.Type.OPEN)) {
 //                            camera.getCameraControl().setZoomRatio(2.0f);
-//                            if (successZoom != 1.0) {
-//                                binding.sequrePreview.postDelayed(() -> {
-//                                    float zoomRatio = Math.min(successZoom, camera.getCameraInfo().getZoomState().getValue().getMaxZoomRatio());
-//                                    zoom = zoomRatio;
-//                                    camera.getCameraControl().setZoomRatio(zoomRatio);
-//                                }, 100);
-//                            } else {
-                            binding.sequrePreview.postDelayed(() -> {
+                            if (successZoom != 1.0) {
+                                binding.sequrePreview.postDelayed(() -> {
+                                    float zoomRatio = Math.min(successZoom, camera.getCameraInfo().getZoomState().getValue().getMaxZoomRatio());
+                                    zoom = zoomRatio;
+                                    camera.getCameraControl().setZoomRatio(zoomRatio);
+                                }, 100);
+                            } else {
+                                binding.sequrePreview.postDelayed(() -> {
 //                                    ValueAnimator animator = ValueAnimator.ofFloat(1f, 1.5f, 2f, 2.5f, 3f, 3.5f, 4f);
 //                                ValueAnimator animator = ValueAnimator.ofFloat(3.2f, 3.4f, 3.6f, 3.8f, 4f);
 //                                animator.setDuration(500);
@@ -750,14 +750,14 @@ public class Sequre extends AppCompatActivity {
 //                                zooming = true;
 //                                animator.start();
 
-                                zoom = 4.0f;
-                                zooming = true;
-                                binding.sequreZoomRatio.setText("" + zoom);
-                                camera.getCameraControl().setZoomRatio(zoom).addListener(() -> {
-                                    zooming = false;
-                                }, getMainExecutor());
-                            }, 100);
-//                            }
+                                    zoom = 4.0f;
+                                    zooming = true;
+                                    binding.sequreZoomRatio.setText("" + zoom);
+                                    camera.getCameraControl().setZoomRatio(zoom).addListener(() -> {
+                                        zooming = false;
+                                    }, ContextCompat.getMainExecutor(Sequre.this));
+                                }, 100);
+                            }
                         }
                     });
 
@@ -800,7 +800,7 @@ public class Sequre extends AppCompatActivity {
             binding.sequreZoomRatio.setText("" + zoom);
             camera.getCameraControl().setZoomRatio(zoom).addListener(() -> {
                 zooming = false;
-            }, getMainExecutor());
+            }, ContextCompat.getMainExecutor(Sequre.this));
         }
     }
 
