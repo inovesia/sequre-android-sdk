@@ -37,6 +37,7 @@ public class Utils {
     public static final String URL = "https://smobile.sequre.id";
 
     public static final String ACTION_VALIDATE = "/api/sdk/validate";
+    public static final String ACTION_CHECK_QR = "/api/check-qr";
     private static OkHttpClient client = new OkHttpClient();
 
     public static void api(Context context, final String method, final String path, JSONObject payload, final Callback callback) {

@@ -57,6 +57,7 @@ import com.google.zxing.RGBLuminanceSource;
 import com.google.zxing.Reader;
 import com.google.zxing.common.HybridBinarizer;
 
+import org.json.JSONObject;
 import org.tensorflow.lite.support.image.ImageProcessor;
 import org.tensorflow.lite.support.image.TensorImage;
 import org.tensorflow.lite.support.label.Category;
@@ -116,6 +117,18 @@ public class Sequre extends AppCompatActivity {
     private MultiFormatReader reader;
     private SharedPreferences pref;
     private Long[] timelines = new Long[4];
+
+    class QrcodeStatus {
+        String status;
+        Long timestamp;
+
+        public QrcodeStatus(String status, Long timestamp) {
+            this.status = status;
+            this.timestamp = timestamp;
+        }
+    }
+
+    private Map<String, QrcodeStatus> qrcodeStatuses = new HashMap<>();
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -330,21 +343,18 @@ public class Sequre extends AppCompatActivity {
     private void detect(ImageProxy imageProxy) {
         if (objectDetector != null) {
             log("preparing image");
-            ImageProcessor.Builder builder = new ImageProcessor.Builder();
-            ImageProcessor imageProcessor = builder.build();
-
             Bitmap imageBuffer = Bitmap.createBitmap(imageProxy.getWidth(), imageProxy.getHeight(), Bitmap.Config.ARGB_8888);
             imageBuffer.copyPixelsFromBuffer(imageProxy.getPlanes()[0].getBuffer());
 
             // read qr
-            log("extract qrcode");
             int[] intArray = new int[imageBuffer.getWidth() * imageBuffer.getHeight()];
             //copy pixel data from the Bitmap into the 'intArray' array
             imageBuffer.getPixels(intArray, 0, imageBuffer.getWidth(), 0, 0, imageBuffer.getWidth(), imageBuffer.getHeight());
-
+//
             LuminanceSource source = new RGBLuminanceSource(imageBuffer.getWidth(), imageBuffer.getHeight(), intArray);
             BinaryBitmap bitmap = new BinaryBitmap(new HybridBinarizer(source));
 
+            log("extract qrcode");
             Reader reader = new MultiFormatReader();// use this otherwise ChecksumException
             try {
                 com.google.zxing.Result qr = reader.decode(bitmap);
@@ -363,11 +373,59 @@ public class Sequre extends AppCompatActivity {
                 finish();
                 return;
             }
-            log("TensorFlow: detecting objects");
-            TensorImage image = imageProcessor.process(TensorImage.fromBitmap(imageBuffer));
 
-            boundingBoxs.clear();
-            List<Detection> detections = objectDetector.detect(image);
+            QrcodeStatus qrcodeStatus = qrcodeStatuses.get(result.qr);
+            if (qrcodeStatus == null || System.currentTimeMillis() - qrcodeStatus.timestamp > 5 * 60 * 1000) {
+                // check status
+                Utils.ApiRequest request = Utils.newApiRequest();
+                request.put("qrcode", result.qr);
+                Utils.api(CONTEXT, "post", Utils.ACTION_CHECK_QR, request.json(), response -> {
+                    System.out.println(":: response: " + response);
+                    String status = "Inactive";
+                    if (response != null) {
+                        message = null;
+                        validated = true;
+                        if (response.code == 200) {
+                            try {
+                                status = ((JSONObject) response.data).getString("status");
+                            } catch (Exception e) {
+                                e.printStackTrace();
+                            }
+                        }
+                    }
+                    qrcodeStatuses.put(result.qr, new QrcodeStatus(status, System.currentTimeMillis()));
+                    if ("Active".equals(status)) {
+                        detect(imageProxy, imageBuffer);
+                    } else {
+                        result.status = Status.Fake;
+                        result.message = "inactive";
+                        finish();
+                    }
+                });
+            } else {
+                if ("Active".equals(qrcodeStatus.status)) {
+                    detect(imageProxy, imageBuffer);
+                } else {
+                    result.status = Status.Fake;
+                    result.message = "inactive";
+                    finish();
+                }
+            }
+        } else {
+            processing = null;
+        }
+    }
+
+    private void detect(ImageProxy imageProxy, Bitmap imageBuffer) {
+        ImageProcessor.Builder builder = new ImageProcessor.Builder();
+        ImageProcessor imageProcessor = builder.build();
+
+        log("TensorFlow: detecting objects");
+        TensorImage image = imageProcessor.process(TensorImage.fromBitmap(imageBuffer));
+
+        boundingBoxs.clear();
+        List<Detection> detections = objectDetector.detect(image);
+        runOnUiThread(() -> {
             if (detections.size() > 0) {
                 Size size = new Size(imageProxy.getHeight(), imageProxy.getWidth());
 //                ViewGroup.LayoutParams params = binding.sequrePreviews.getLayoutParams();
@@ -445,7 +503,6 @@ public class Sequre extends AppCompatActivity {
                                             image.close();
                                         }
                                     }.start();
-
                                 }
 
                                 @Override
@@ -469,9 +526,7 @@ public class Sequre extends AppCompatActivity {
                 mask.invalidate();
                 processing = null;
             }
-        } else {
-            processing = null;
-        }
+        });
     }
 
     private void detect2(ImageProxy imageProxy) {
