@@ -24,15 +24,17 @@ public class Sample extends AppCompatActivity {
         sequre.init(this, APPLICATION_NUMBER);
         sequre.setLanguage("id");
 
-        binding.scan.setOnClickListener(view -> sequre.scan(result -> {
-            System.out.println(":: result: " + result);
-            ResultBinding item = ResultBinding.inflate(getLayoutInflater());
-            item.resultStatus.setText(String.format("%s", result.getStatus()));
-            item.resultMessage.setText(result.getMessage() == null ? "" : result.getMessage());
-            item.resultQr.setText(result.getQr() == null ? "" : result.getQr());
-            item.resultScore.setText(result.getScore() == null ? "" : (String.format("%s", result.getScore())).substring(0, 4));
-            item.resultTimeline.setText(result.getTimeline() == null ? "" : result.getTimeline());
-            runOnUiThread(() -> binding.results.addView(item.getRoot(), 0));
-        }));
+        binding.scan.setOnClickListener(view -> {
+            sequre.scan(result -> {
+                System.out.println(":: result: " + result);
+                ResultBinding item = ResultBinding.inflate(getLayoutInflater());
+                item.resultStatus.setText(String.format("%s", result.getStatus()));
+                item.resultMessage.setText(result.getMessage() == null ? "" : result.getMessage());
+                item.resultQr.setText(result.getQr() == null ? "" : result.getQr());
+                item.resultScore.setText(result.getScore() == null ? "" : (String.format("%s", result.getScore())).substring(0, 4));
+                item.resultTimeline.setText(result.getTimeline() == null ? "" : result.getTimeline());
+                runOnUiThread(() -> binding.results.addView(item.getRoot(), 0));
+            });
+        });
     }
 }

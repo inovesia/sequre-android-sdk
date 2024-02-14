@@ -1,6 +1,7 @@
 package id.sequre.sdk;
 
 import android.Manifest;
+import android.animation.ValueAnimator;
 import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
@@ -17,18 +18,17 @@ import android.graphics.Color;
 import android.graphics.Matrix;
 import android.graphics.Paint;
 import android.graphics.RectF;
+import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.Environment;
 import android.text.Editable;
 import android.text.TextWatcher;
 import android.util.Size;
-import android.view.KeyEvent;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.RelativeLayout;
 import android.widget.SeekBar;
-import android.widget.TextView;
 
 import androidx.annotation.NonNull;
 import androidx.appcompat.app.AlertDialog;
@@ -47,6 +47,7 @@ import androidx.core.content.ContextCompat;
 
 import com.google.android.gms.common.util.ArrayUtils;
 import com.google.android.gms.tflite.client.TfLiteInitializationOptions;
+import com.google.android.gms.tflite.java.TfLite;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.zxing.BarcodeFormat;
 import com.google.zxing.BinaryBitmap;
@@ -58,6 +59,7 @@ import com.google.zxing.Reader;
 import com.google.zxing.common.HybridBinarizer;
 
 import org.json.JSONObject;
+import org.tensorflow.lite.TensorFlowLite;
 import org.tensorflow.lite.support.image.ImageProcessor;
 import org.tensorflow.lite.support.image.TensorImage;
 import org.tensorflow.lite.support.label.Category;
@@ -99,12 +101,14 @@ public class Sequre extends AppCompatActivity {
     private ImageCapture imageCapture;
     private Camera camera;
     private boolean resized, torch;
+    private float zoom = 1, successZoom = 4;
     private double moveCloser = 0.6, moveFurther = 0.8, distancesLength = 3, distancesMax = 40, framePercentage = 0.8, frameRatio = 1.0 / 2.0, ratio, left, top, width, height, vertical, horizontal;
     private int eventColor = Color.GRAY;
     private int eventWidth = 10;
+    private int multiCapture = 0, multiCaptureMax = 5;
     private List<RectF> boundingBoxs = new ArrayList<>();
 
-    private ObjectDetector objectDetector, objectDetectorV2;
+    private ObjectDetector blurClassifier, objectDetector, objectCropper;
     private ImageClassifier imageClassifier;
     private List<Double> distances;
     private Result result;
@@ -112,6 +116,7 @@ public class Sequre extends AppCompatActivity {
     private View mask;
 
     private Long processing;
+    private boolean zooming;
     private Timer watcher;
 
     private MultiFormatReader reader;
@@ -195,7 +200,7 @@ public class Sequre extends AppCompatActivity {
                 @Override
                 public void run() {
                     log("processing preview");
-                    if (processing == null) {
+                    if (processing == null && !zooming) {
                         processing = System.currentTimeMillis();
                         detect(imageProxy);
                     }
@@ -251,14 +256,17 @@ public class Sequre extends AppCompatActivity {
             }
         }, 1000, 1000);
 
-        requestPermissions();
 
         pref = getSharedPreferences(getPackageName(), MODE_PRIVATE);
+
+        successZoom = pref.getFloat("successZoom", 1.0f);
 
         framePercentage = Double.parseDouble(pref.getString("framePercentage", "0.9"));
         frameRatio = Double.parseDouble(pref.getString("frameRatio", "0.5"));
         moveCloser = Double.parseDouble(pref.getString("moveCloser", "0.6"));
         moveFurther = Double.parseDouble(pref.getString("moveFurther", "0.8"));
+
+        requestPermissions();
 
         binding.sequreFramePercentage.setText("" + framePercentage);
         binding.sequreFrameRatio.setText("" + frameRatio);
@@ -323,8 +331,8 @@ public class Sequre extends AppCompatActivity {
 //        }
 
         try {
-            objectDetector = ObjectDetector.createFromFileAndOptions(Sequre.this, "sequre.tflite", objectDetectorOptions.build());
-            objectDetectorV2 = ObjectDetector.createFromFileAndOptions(Sequre.this, "sequre_v2.tflite", objectDetectorOptions.build());
+            objectDetector = ObjectDetector.createFromFileAndOptions(Sequre.this, "sequre_object-20230123-me.tflite", objectDetectorOptions.build());
+            objectCropper = ObjectDetector.createFromFileAndOptions(Sequre.this, "sequre_crop_canvas-20230510hi.tflite", objectDetectorOptions.build());
         } catch (Exception e) {
             e.printStackTrace();
         }
@@ -334,10 +342,11 @@ public class Sequre extends AppCompatActivity {
         imageClassifierOptions.setMaxResults(3);
 
         try {
-            imageClassifier = ImageClassifier.createFromFileAndOptions(Sequre.this, "classification.tflite", imageClassifierOptions.build());
+            imageClassifier = ImageClassifier.createFromFileAndOptions(Sequre.this, "model_classification_20230308.tflite", imageClassifierOptions.build());
         } catch (Exception e) {
             e.printStackTrace();
         }
+
     }
 
     private void detect(ImageProxy imageProxy) {
@@ -355,6 +364,12 @@ public class Sequre extends AppCompatActivity {
             BinaryBitmap bitmap = new BinaryBitmap(new HybridBinarizer(source));
 
             log("extract qrcode");
+            TensorImage image = imageProcessor.process(TensorImage.fromBitmap(imageBuffer));
+//            System.out.println(":: blurClassifier: " + blurClassifier);
+//            List<Classifications> classifications = blurClassifier.classify(image);
+//            System.out.println(":: classifications: " + classifications);
+
+
             Reader reader = new MultiFormatReader();// use this otherwise ChecksumException
             try {
                 com.google.zxing.Result qr = reader.decode(bitmap);
@@ -363,6 +378,11 @@ public class Sequre extends AppCompatActivity {
                 e.printStackTrace();
             }
             if (result.qr == null || !result.qr.toLowerCase().startsWith("http")) {
+                eventColor = Color.GRAY;
+                eventWidth = 10;
+                binding.sequreInfo.setVisibility(View.VISIBLE);
+                binding.sequreInfo.setText(R.string.text_find_qr);
+                mask.invalidate();
                 processing = null;
                 return;
             }
@@ -426,16 +446,22 @@ public class Sequre extends AppCompatActivity {
         boundingBoxs.clear();
         List<Detection> detections = objectDetector.detect(image);
         runOnUiThread(() -> {
+            log("TensorFlow: detecting objects");
+
+            boundingBoxs.clear();
+            List<Detection> detections = objectDetector.detect(image);
+            System.out.println(":: detections.size(): " + detections.size());
             if (detections.size() > 0) {
                 Size size = new Size(imageProxy.getHeight(), imageProxy.getWidth());
-//                ViewGroup.LayoutParams params = binding.sequrePreviews.getLayoutParams();
-//                for (Detection detection : detections) {
-//                    RectF boundingBox = detection.getBoundingBox();
-//                    // scale meet preview size
-//                    boundingBox = new RectF(size.getWidth() - boundingBox.bottom, boundingBox.left, size.getWidth() - boundingBox.bottom + boundingBox.height(), boundingBox.right);
-//                    boundingBox = new RectF(boundingBox.left / size.getWidth() * params.width, boundingBox.top / size.getHeight() * params.height, boundingBox.right / size.getWidth() * params.width, boundingBox.bottom / size.getHeight() * params.height);
-//                    boundingBoxs.add(boundingBox);
-//                }
+                ViewGroup.LayoutParams params = binding.sequrePreviews.getLayoutParams();
+                for (Detection detection : detections) {
+                    System.out.println(":: getScore: " + detection.getCategories().get(0).getScore());
+                    RectF boundingBox = detection.getBoundingBox();
+                    // scale meet preview size
+                    boundingBox = new RectF(size.getWidth() - boundingBox.bottom, boundingBox.left, size.getWidth() - boundingBox.bottom + boundingBox.height(), boundingBox.right);
+                    boundingBox = new RectF(boundingBox.left / size.getWidth() * params.width, boundingBox.top / size.getHeight() * params.height, boundingBox.right / size.getWidth() * params.width, boundingBox.bottom / size.getHeight() * params.height);
+                    boundingBoxs.add(boundingBox);
+                }
                 RectF boundingBox = transform(detections.get(0).getBoundingBox());
 
                 double height = size.getHeight() * framePercentage;
@@ -444,7 +470,11 @@ public class Sequre extends AppCompatActivity {
                 double vertical = (size.getHeight() - height) / 2;
                 double horizontal = (size.getWidth() - width) / 2;
 //                log(detections.size() + " : " + size.getWidth() + "; " + size.getHeight() + ";" + horizontal + "; " + vertical + "; " + width + "; " + height + " boundingBox: " + boundingBox.left + "; " + boundingBox.top + "; " + boundingBox.right + "; " + boundingBox.bottom + "; " + boundingBox.width() + "; " + boundingBox.height());
-                double percentage = boundingBox.width() / width;
+//                double percentage = boundingBox.width() / width;
+                double percentage = boundingBox.width() / size.getWidth();
+
+                binding.sequrePercentage.setText("" + percentage);
+
                 if (percentage < moveCloser) {
 //                    eventColor = Color.GREEN;
                     eventWidth = 10;
@@ -452,6 +482,9 @@ public class Sequre extends AppCompatActivity {
                     binding.sequreInfo.setText(R.string.text_move_closer);
                     mask.invalidate();
                     processing = null;
+                    if (zoom < camera.getCameraInfo().getZoomState().getValue().getMaxZoomRatio()) {
+                        zoomTo(zoom + 1);
+                    }
                 } else if (percentage > 0.8) {
 //                    eventColor = Color.GREEN;
                     eventWidth = 10;
@@ -459,14 +492,15 @@ public class Sequre extends AppCompatActivity {
                     binding.sequreInfo.setText(R.string.text_move_further);
                     mask.invalidate();
                     processing = null;
-                } else if (!(boundingBox.left >= horizontal && boundingBox.right <= horizontal + width &&
-                        boundingBox.top >= vertical && boundingBox.bottom <= vertical + height)) {
-//                    eventColor = Color.GREEN;
-                    eventWidth = 10;
-                    binding.sequreInfo.setVisibility(View.VISIBLE);
-                    binding.sequreInfo.setText(R.string.text_place_qr_inside_frame);
-                    mask.invalidate();
-                    processing = null;
+                    zoomTo(zoom - 1);
+//                } else if (!(boundingBox.left >= horizontal && boundingBox.right <= horizontal + width &&
+//                        boundingBox.top >= vertical && boundingBox.bottom <= vertical + height)) {
+////                    eventColor = Color.GREEN;
+//                    eventWidth = 10;
+//                    binding.sequreInfo.setVisibility(View.VISIBLE);
+//                    binding.sequreInfo.setText(R.string.text_place_qr_inside_frame);
+//                    mask.invalidate();
+//                    processing = null;
                 } else {
                     double distance = Math.sqrt(Math.pow(boundingBox.left - left, 2) + Math.pow(boundingBox.top - top, 2));
                     left = boundingBox.left;
@@ -489,28 +523,8 @@ public class Sequre extends AppCompatActivity {
                         timelines[1] = System.currentTimeMillis();
 //                            processing = null;
                         if (average <= distancesMax) {
-                            // capture
-                            log("takePicture");
-                            imageCapture.takePicture(ContextCompat.getMainExecutor(Sequre.this), new ImageCapture.OnImageCapturedCallback() {
-                                @Override
-                                public void onCaptureSuccess(@NonNull ImageProxy image) {
-                                    super.onCaptureSuccess(image);
-                                    new Thread() {
-                                        @Override
-                                        public void run() {
-                                            timelines[2] = System.currentTimeMillis();
-                                            detect2(image);
-                                            image.close();
-                                        }
-                                    }.start();
-                                }
-
-                                @Override
-                                public void onError(@NonNull ImageCaptureException exception) {
-                                    super.onError(exception);
-                                    processing = null;
-                                }
-                            });
+                            multiCapture = 1;
+                            capture();
                         } else {
                             processing = null;
                         }
@@ -521,7 +535,7 @@ public class Sequre extends AppCompatActivity {
             } else {
                 eventColor = Color.GRAY;
                 eventWidth = 10;
-                binding.sequreInfo.setVisibility(View.GONE);
+                binding.sequreInfo.setVisibility(View.VISIBLE);
                 binding.sequreInfo.setText(R.string.text_find_qr);
                 mask.invalidate();
                 processing = null;
@@ -529,8 +543,34 @@ public class Sequre extends AppCompatActivity {
         });
     }
 
+    private void capture() {
+        // capture
+        log("takePicture");
+        imageCapture.takePicture(ContextCompat.getMainExecutor(Sequre.this), new ImageCapture.OnImageCapturedCallback() {
+            @Override
+            public void onCaptureSuccess(@NonNull ImageProxy image) {
+                super.onCaptureSuccess(image);
+                new Thread() {
+                    @Override
+                    public void run() {
+                        timelines[2] = System.currentTimeMillis();
+                        detect2(image);
+                        image.close();
+                    }
+                }.start();
+
+            }
+
+            @Override
+            public void onError(@NonNull ImageCaptureException exception) {
+                super.onError(exception);
+                processing = null;
+            }
+        });
+    }
+
     private void detect2(ImageProxy imageProxy) {
-        if (objectDetectorV2 != null) {
+        if (objectCropper != null) {
             log("TensorFlow: processing");
             ImageProcessor.Builder builder = new ImageProcessor.Builder();
             ImageProcessor imageProcessor = builder.build();
@@ -542,7 +582,8 @@ public class Sequre extends AppCompatActivity {
             Bitmap bitmap = BitmapFactory.decodeByteArray(bytes, 0, length);
             bitmap = rotate(bitmap);
             TensorImage image = imageProcessor.process(TensorImage.fromBitmap(bitmap));
-            List<Detection> detections = objectDetectorV2.detect(image);
+            List<Detection> detections = objectCropper.detect(image);
+            String timestamp = new SimpleDateFormat("yyyyMMdd_HHmm").format(new Date());
             if (detections.size() > 0) {
                 try {
                     RectF boundingBox = detections.get(0).getBoundingBox();
@@ -562,7 +603,11 @@ public class Sequre extends AppCompatActivity {
                         result.score = category.getScore();
                         if (category.getLabel().equals("genuine")) {
                             if (category.getScore() > 0.85f) {
+                                pref.edit().putFloat("successZoom", zoom).apply();
                                 result.status = Status.Genuine;
+                                save(timestamp, "genuine_" + ("" + result.score).substring(2, 4), bitmap);
+                                finish();
+                                return;
                             } else {
                                 result.status = Status.Fake;
                                 result.message = "poor_image_quality";
@@ -570,14 +615,20 @@ public class Sequre extends AppCompatActivity {
                         } else {
                             result.status = Status.Fake;
                         }
-
-                        if (result.status.equals(Status.Fake)) {
-                            save(bitmap);
-                            save(resized);
+//                        String prefix = "" + result.status.toString().toLowerCase() + "_" + ("" + result.score).substring(2, 4);
+//                        save(timestamp, "bitmap_" + prefix, bitmap);
+//                        save(timestamp, "resized_" + prefix, resized);
+                        // multi capture
+                        if (multiCapture < multiCaptureMax) {
+                            multiCapture++;
+                            capture();
+                        } else {
+                            // max multi capture reach
+                            finish();
                         }
-                        finish();
                     } else {
-                        save(resized);
+//                        save(timestamp, "bitmap_no_classification_found", bitmap);
+//                        save(timestamp, "resized_no_classification_found", resized);
                         log("TensorFlow: no classification found");
                         processing = null;
                     }
@@ -587,7 +638,7 @@ public class Sequre extends AppCompatActivity {
                     log("TensorFlow: error: " + e.toString());
                 }
             } else {
-                save(bitmap);
+//                save(timestamp, "bitmap_no_object_found", bitmap);
                 log("TensorFlow: no object found");
                 processing = null;
             }
@@ -617,18 +668,31 @@ public class Sequre extends AppCompatActivity {
         return new RectF(box.top, box.left, box.bottom, box.right);
     }
 
-    private void save(Bitmap bitmap) {
-//        try {
-//            String timestamp = new SimpleDateFormat("yyyyMMdd_HHmm").format(new Date());
-//            String name = timestamp + "_" + System.currentTimeMillis() + ".png";
-//            File file = new File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_PICTURES), name);
-//            FileOutputStream fos = new FileOutputStream(file);
-//            bitmap.compress(Bitmap.CompressFormat.JPEG, 60, fos);
-//            fos.flush();
-//            fos.close();
-//        } catch (Exception e) {
-//            e.printStackTrace();
-//        }
+    private void save(String timestamp, String prefix, Bitmap bitmap) {
+        try {
+            String name = timestamp + "_" + System.currentTimeMillis() + "_" + prefix + ".png";
+            File root = new File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DCIM), "sequre/");
+            if (!root.exists()) {
+                root.mkdirs();
+            }
+//            Utils.alert(Sequre.this, "" + getTitle(), "root: " + root.toString() + " (" + root.exists() + ")");
+            File file = new File(root, name);
+            FileOutputStream fos = new FileOutputStream(file);
+//            Utils.alert(Sequre.this, "" + getTitle(), "file: " + file.toString());
+            bitmap.compress(Bitmap.CompressFormat.JPEG, 60, fos);
+            fos.flush();
+            fos.close();
+
+            Intent mediaScanIntent = new Intent(Intent.ACTION_MEDIA_SCANNER_SCAN_FILE);
+            Uri contentUri = Uri.fromFile(file);
+            mediaScanIntent.setData(contentUri);
+            this.sendBroadcast(mediaScanIntent);
+
+//            Utils.alert(Sequre.this, "" + getTitle(), "Successfully");
+        } catch (Exception e) {
+//            Utils.alert(Sequre.this, "" + getTitle(), e.toString());
+            e.printStackTrace();
+        }
     }
 
     private void initMask(ImageProxy image) {
@@ -674,15 +738,15 @@ public class Sequre extends AppCompatActivity {
                 canvas.drawRect((float) (params.width - horizontal + eventWidth), (float) (params.height - vertical + eventWidth), (float) (params.width - horizontal - il + eventWidth), (float) (params.height - vertical), paint);
                 canvas.drawRect((float) (params.width - horizontal + eventWidth), (float) (params.height - vertical + eventWidth), (float) (params.width - horizontal), (float) (params.height - vertical - il + eventWidth), paint);
 
-//                // draw boundingBox
-//                paint.setColor(Color.GREEN);
-//                for (RectF boundingBox : boundingBoxs) {
-//                    canvas.drawRect(boundingBox.left, boundingBox.top, boundingBox.left + boundingBox.width(), boundingBox.top + eventWidth / 2f, paint);
-//                    canvas.drawRect(boundingBox.left, boundingBox.top, boundingBox.left + eventWidth / 2f, boundingBox.top + boundingBox.height(), paint);
-//
-//                    canvas.drawRect(boundingBox.right, boundingBox.bottom, boundingBox.right - boundingBox.width(), boundingBox.bottom - eventWidth / 2f, paint);
-//                    canvas.drawRect(boundingBox.right, boundingBox.bottom, boundingBox.right - eventWidth / 2f, boundingBox.bottom - boundingBox.height(), paint);
-//                }
+                // draw boundingBox
+                paint.setColor(Color.GREEN);
+                for (RectF boundingBox : boundingBoxs) {
+                    canvas.drawRect(boundingBox.left, boundingBox.top, boundingBox.left + boundingBox.width(), boundingBox.top + eventWidth / 2f, paint);
+                    canvas.drawRect(boundingBox.left, boundingBox.top, boundingBox.left + eventWidth / 2f, boundingBox.top + boundingBox.height(), paint);
+
+                    canvas.drawRect(boundingBox.right, boundingBox.bottom, boundingBox.right - boundingBox.width(), boundingBox.bottom - eventWidth / 2f, paint);
+                    canvas.drawRect(boundingBox.right, boundingBox.bottom, boundingBox.right - eventWidth / 2f, boundingBox.bottom - boundingBox.height(), paint);
+                }
             }
         };
 
@@ -694,8 +758,10 @@ public class Sequre extends AppCompatActivity {
 
 
     private void requestPermissions() {
-        if (ContextCompat.checkSelfPermission(Sequre.this, Manifest.permission.CAMERA) == PackageManager.PERMISSION_DENIED) {
-            ActivityCompat.requestPermissions(Sequre.this, new String[]{android.Manifest.permission.CAMERA, Manifest.permission.WRITE_EXTERNAL_STORAGE}, PERMISSION_REQUEST);
+        if (ContextCompat.checkSelfPermission(Sequre.this, Manifest.permission.CAMERA) == PackageManager.PERMISSION_DENIED ||
+                ContextCompat.checkSelfPermission(Sequre.this, Manifest.permission.WRITE_EXTERNAL_STORAGE) == PackageManager.PERMISSION_DENIED ||
+                ContextCompat.checkSelfPermission(Sequre.this, Manifest.permission.ACCESS_MEDIA_LOCATION) == PackageManager.PERMISSION_DENIED) {
+            ActivityCompat.requestPermissions(Sequre.this, new String[]{android.Manifest.permission.CAMERA, Manifest.permission.WRITE_EXTERNAL_STORAGE, Manifest.permission.ACCESS_MEDIA_LOCATION}, PERMISSION_REQUEST);
         } else {
             startCamera();
         }
@@ -720,10 +786,39 @@ public class Sequre extends AppCompatActivity {
                     camera.getCameraInfo().getCameraState().removeObservers(Sequre.this);
                     camera.getCameraInfo().getCameraState().observe(Sequre.this, cameraState -> {
                         if (cameraState.getType().equals(CameraState.Type.OPEN)) {
-                            binding.sequrePreview.postDelayed(() -> {
-                                float zoomRatio = Math.min(4f, camera.getCameraInfo().getZoomState().getValue().getMaxZoomRatio());
-                                camera.getCameraControl().setZoomRatio(zoomRatio);
-                            }, 100);
+//                            camera.getCameraControl().setZoomRatio(2.0f);
+                            if (successZoom != 1.0) {
+                                binding.sequrePreview.postDelayed(() -> {
+                                    float zoomRatio = Math.min(successZoom, camera.getCameraInfo().getZoomState().getValue().getMaxZoomRatio());
+                                    zoom = zoomRatio;
+                                    camera.getCameraControl().setZoomRatio(zoomRatio);
+                                }, 100);
+                            } else {
+                                binding.sequrePreview.postDelayed(() -> {
+//                                    ValueAnimator animator = ValueAnimator.ofFloat(1f, 1.5f, 2f, 2.5f, 3f, 3.5f, 4f);
+//                                ValueAnimator animator = ValueAnimator.ofFloat(3.2f, 3.4f, 3.6f, 3.8f, 4f);
+//                                animator.setDuration(500);
+//                                animator.addUpdateListener(valueAnimator -> {
+//                                    zoom = (float) valueAnimator.getAnimatedValue();
+//                                    if (zoom <= camera.getCameraInfo().getZoomState().getValue().getMaxZoomRatio()) {
+//                                        binding.sequreZoomRatio.setText("" + zoom);
+//                                        camera.getCameraControl().setZoomRatio(zoom);
+//                                    }
+//                                    if (zoom == 4f) {
+//                                        zooming = false;
+//                                    }
+//                                });
+//                                zooming = true;
+//                                animator.start();
+
+                                    zoom = 4.0f;
+                                    zooming = true;
+                                    binding.sequreZoomRatio.setText("" + zoom);
+                                    camera.getCameraControl().setZoomRatio(zoom).addListener(() -> {
+                                        zooming = false;
+                                    }, ContextCompat.getMainExecutor(Sequre.this));
+                                }, 100);
+                            }
                         }
                     });
 
@@ -734,6 +829,40 @@ public class Sequre extends AppCompatActivity {
                 }
             }
         }, ContextCompat.getMainExecutor(Sequre.this));
+    }
+
+
+    private void zoomTo(float target) {
+        if (zoom != target && target <= camera.getCameraInfo().getZoomState().getValue().getMaxZoomRatio()) {
+//            float[] values = new float[5];
+//            for (int i = 1; i <= 5; i++) {
+//                if (target > zoom) {
+//                    values[i - 1] = zoom + i * 0.2f;
+//                } else {
+//                    values[i - 1] = zoom - i * 0.2f;
+//                }
+//            }
+//            ValueAnimator animator = ValueAnimator.ofFloat(values);
+//            animator.setDuration(500);
+//            animator.addUpdateListener(valueAnimator -> {
+//                zoom = (float) valueAnimator.getAnimatedValue();
+//                if (zoom <= camera.getCameraInfo().getZoomState().getValue().getMaxZoomRatio()) {
+//                    binding.sequreZoomRatio.setText("" + zoom);
+//                    camera.getCameraControl().setZoomRatio(zoom);
+//                }
+//                if (zoom == target) {
+//                    zooming = false;
+//                }
+//            });
+//            zooming = true;
+//            animator.start();
+            zooming = true;
+            zoom = target;
+            binding.sequreZoomRatio.setText("" + zoom);
+            camera.getCameraControl().setZoomRatio(zoom).addListener(() -> {
+                zooming = false;
+            }, ContextCompat.getMainExecutor(Sequre.this));
+        }
     }
 
     @Override
