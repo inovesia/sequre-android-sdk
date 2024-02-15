@@ -13,4 +13,5 @@
     <string name="text_check_your_internet_connection">Periksa koneksi internet Anda</string>
     <string name="text_adjust_qr_to_the_area">Posisikan QR Code ke dalam Area</string>
     <string name="text_scanning_will_begin_automatically">Scanning akan dimulai secara otomatis</string>
+    <string name="text_reading_image">Membaca gambar</string>
 </resources>

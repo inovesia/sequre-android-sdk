@@ -364,7 +364,7 @@ public class Sequre extends AppCompatActivity {
             BinaryBitmap bitmap = new BinaryBitmap(new HybridBinarizer(source));
 
             log("extract qrcode");
-            TensorImage image = imageProcessor.process(TensorImage.fromBitmap(imageBuffer));
+//            TensorImage image = imageProcessor.process(TensorImage.fromBitmap(imageBuffer));
 //            System.out.println(":: blurClassifier: " + blurClassifier);
 //            List<Classifications> classifications = blurClassifier.classify(image);
 //            System.out.println(":: classifications: " + classifications);
@@ -449,7 +449,6 @@ public class Sequre extends AppCompatActivity {
             log("TensorFlow: detecting objects");
 
             boundingBoxs.clear();
-            List<Detection> detections = objectDetector.detect(image);
             System.out.println(":: detections.size(): " + detections.size());
             if (detections.size() > 0) {
                 Size size = new Size(imageProxy.getHeight(), imageProxy.getWidth());
@@ -571,6 +570,11 @@ public class Sequre extends AppCompatActivity {
 
     private void detect2(ImageProxy imageProxy) {
         if (objectCropper != null) {
+            runOnUiThread(() -> {
+                binding.sequreInfo.setVisibility(View.VISIBLE);
+                binding.sequreInfo.setText(R.string.text_reading_image);
+                mask.invalidate();
+            });
             log("TensorFlow: processing");
             ImageProcessor.Builder builder = new ImageProcessor.Builder();
             ImageProcessor imageProcessor = builder.build();
@@ -614,6 +618,7 @@ public class Sequre extends AppCompatActivity {
                             }
                         } else {
                             result.status = Status.Fake;
+                            result.message = "poor_image_quality";
                         }
 //                        String prefix = "" + result.status.toString().toLowerCase() + "_" + ("" + result.score).substring(2, 4);
 //                        save(timestamp, "bitmap_" + prefix, bitmap);
@@ -789,8 +794,9 @@ public class Sequre extends AppCompatActivity {
 //                            camera.getCameraControl().setZoomRatio(2.0f);
                             if (successZoom != 1.0) {
                                 binding.sequrePreview.postDelayed(() -> {
-                                    float zoomRatio = Math.min(successZoom, camera.getCameraInfo().getZoomState().getValue().getMaxZoomRatio());
+                                    float zoomRatio = Math.min(Math.min(successZoom, 5f), camera.getCameraInfo().getZoomState().getValue().getMaxZoomRatio());
                                     zoom = zoomRatio;
+                                    binding.sequreZoomRatio.setText("" + zoom);
                                     camera.getCameraControl().setZoomRatio(zoomRatio);
                                 }, 100);
                             } else {
@@ -805,6 +811,7 @@ public class Sequre extends AppCompatActivity {
 //                                        camera.getCameraControl().setZoomRatio(zoom);
 //                                    }
 //                                    if (zoom == 4f) {
+//                                        zooming = false;
 //                                        zooming = false;
 //                                    }
 //                                });
