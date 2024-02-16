@@ -609,6 +609,7 @@ public class Sequre extends AppCompatActivity {
                             if (category.getScore() > 0.85f) {
                                 pref.edit().putFloat("successZoom", zoom).apply();
                                 result.status = Status.Genuine;
+                                result.message = "";
                                 save(timestamp, "genuine_" + ("" + result.score).substring(2, 4), bitmap);
                                 finish();
                                 return;
@@ -770,70 +771,66 @@ public class Sequre extends AppCompatActivity {
         } else {
             startCamera();
         }
-
     }
 
     private void startCamera() {
         ListenableFuture<ProcessCameraProvider> cameraProviderFuture = ProcessCameraProvider.getInstance(Sequre.this);
-        cameraProviderFuture.addListener(new Runnable() {
-            @Override
-            public void run() {
-                try {
-                    ProcessCameraProvider cameraProvider = cameraProviderFuture.get();
-                    Preview preview = new Preview.Builder()
+        cameraProviderFuture.addListener(() -> {
+            try {
+                ProcessCameraProvider cameraProvider = cameraProviderFuture.get();
+                Preview preview = new Preview.Builder()
 //                            .setTargetAspectRatio(AspectRatio.RATIO_4_3)
 //                            .setTargetRotation(Surface.ROTATION_0)
-                            .build();
-                    preview.setSurfaceProvider(binding.sequrePreview.getSurfaceProvider());
-                    cameraProvider.unbindAll();
-                    camera = cameraProvider.bindToLifecycle(Sequre.this, CameraSelector.DEFAULT_BACK_CAMERA, imageCapture, imageAnalysis, preview);
+                        .build();
+                preview.setSurfaceProvider(binding.sequrePreview.getSurfaceProvider());
+                cameraProvider.unbindAll();
+                camera = cameraProvider.bindToLifecycle(Sequre.this, CameraSelector.DEFAULT_BACK_CAMERA, imageCapture, imageAnalysis, preview);
 
-                    camera.getCameraInfo().getCameraState().removeObservers(Sequre.this);
-                    camera.getCameraInfo().getCameraState().observe(Sequre.this, cameraState -> {
-                        if (cameraState.getType().equals(CameraState.Type.OPEN)) {
+                camera.getCameraInfo().getCameraState().removeObservers(Sequre.this);
+                camera.getCameraInfo().getCameraState().observe(Sequre.this, cameraState -> {
+                    if (cameraState.getType().equals(CameraState.Type.OPEN)) {
 //                            camera.getCameraControl().setZoomRatio(2.0f);
-                            if (successZoom != 1.0) {
-                                binding.sequrePreview.postDelayed(() -> {
-                                    float zoomRatio = Math.min(Math.min(successZoom, 5f), camera.getCameraInfo().getZoomState().getValue().getMaxZoomRatio());
-                                    zoom = zoomRatio;
-                                    binding.sequreZoomRatio.setText("" + zoom);
-                                    camera.getCameraControl().setZoomRatio(zoomRatio);
-                                }, 100);
-                            } else {
-                                binding.sequrePreview.postDelayed(() -> {
-//                                    ValueAnimator animator = ValueAnimator.ofFloat(1f, 1.5f, 2f, 2.5f, 3f, 3.5f, 4f);
-//                                ValueAnimator animator = ValueAnimator.ofFloat(3.2f, 3.4f, 3.6f, 3.8f, 4f);
-//                                animator.setDuration(500);
-//                                animator.addUpdateListener(valueAnimator -> {
-//                                    zoom = (float) valueAnimator.getAnimatedValue();
-//                                    if (zoom <= camera.getCameraInfo().getZoomState().getValue().getMaxZoomRatio()) {
-//                                        binding.sequreZoomRatio.setText("" + zoom);
-//                                        camera.getCameraControl().setZoomRatio(zoom);
-//                                    }
-//                                    if (zoom == 4f) {
-//                                        zooming = false;
-//                                        zooming = false;
-//                                    }
-//                                });
-//                                zooming = true;
-//                                animator.start();
+//                            if (successZoom != 1.0) {
+//                                binding.sequrePreview.postDelayed(() -> {
+//                                    float zoomRatio = Math.min(Math.min(successZoom, 5f), camera.getCameraInfo().getZoomState().getValue().getMaxZoomRatio());
+//                                    zoom = zoomRatio;
+//                                    binding.sequreZoomRatio.setText("" + zoom);
+//                                    camera.getCameraControl().setZoomRatio(zoomRatio);
+//                                }, 100);
+//                            } else {
+                        binding.sequrePreview.postDelayed(() -> {
+////                                    ValueAnimator animator = ValueAnimator.ofFloat(1f, 1.5f, 2f, 2.5f, 3f, 3.5f, 4f);
+////                                ValueAnimator animator = ValueAnimator.ofFloat(3.2f, 3.4f, 3.6f, 3.8f, 4f);
+////                                animator.setDuration(500);
+////                                animator.addUpdateListener(valueAnimator -> {
+////                                    zoom = (float) valueAnimator.getAnimatedValue();
+////                                    if (zoom <= camera.getCameraInfo().getZoomState().getValue().getMaxZoomRatio()) {
+////                                        binding.sequreZoomRatio.setText("" + zoom);
+////                                        camera.getCameraControl().setZoomRatio(zoom);
+////                                    }
+////                                    if (zoom == 4f) {
+////                                        zooming = false;
+////                                        zooming = false;
+////                                    }
+////                                });
+////                                zooming = true;
+////                                animator.start();
+//
+                            zoom = 5.0f;
+                            zooming = true;
+                            binding.sequreZoomRatio.setText("" + zoom);
+                            camera.getCameraControl().setZoomRatio(zoom).addListener(() -> {
+                                zooming = false;
+                            }, ContextCompat.getMainExecutor(Sequre.this));
+                        }, 100);
+//                            }
+                    }
+                });
 
-                                    zoom = 4.0f;
-                                    zooming = true;
-                                    binding.sequreZoomRatio.setText("" + zoom);
-                                    camera.getCameraControl().setZoomRatio(zoom).addListener(() -> {
-                                        zooming = false;
-                                    }, ContextCompat.getMainExecutor(Sequre.this));
-                                }, 100);
-                            }
-                        }
-                    });
-
-                    // turn torch
-                    binding.sequreTorch.performClick();
-                } catch (Exception e) {
-                    e.printStackTrace();
-                }
+                // turn torch
+                binding.sequreTorch.performClick();
+            } catch (Exception e) {
+                e.printStackTrace();
             }
         }, ContextCompat.getMainExecutor(Sequre.this));
     }
