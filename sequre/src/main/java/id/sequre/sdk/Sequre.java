@@ -605,12 +605,15 @@ public class Sequre extends AppCompatActivity {
                         Category category = classifications.get(0).getCategories().get(0);
 //                        log(category.getLabel() + "; " + category.getScore());
                         result.score = category.getScore();
+                        String prefix = "" + result.status.toString().toLowerCase() + "_" + ("" + result.score).substring(2, 4);
+                        save(timestamp, "bitmap_" + prefix, bitmap);
+                        save(timestamp, "resized_" + prefix, resized);
                         if (category.getLabel().equals("genuine")) {
                             if (category.getScore() > 0.85f) {
                                 pref.edit().putFloat("successZoom", zoom).apply();
                                 result.status = Status.Genuine;
                                 result.message = "";
-                                save(timestamp, "genuine_" + ("" + result.score).substring(2, 4), bitmap);
+//                                save(timestamp, "genuine_" + ("" + result.score).substring(2, 4), bitmap);
                                 finish();
                                 return;
                             } else {
@@ -621,9 +624,6 @@ public class Sequre extends AppCompatActivity {
                             result.status = Status.Fake;
                             result.message = "poor_image_quality";
                         }
-//                        String prefix = "" + result.status.toString().toLowerCase() + "_" + ("" + result.score).substring(2, 4);
-//                        save(timestamp, "bitmap_" + prefix, bitmap);
-//                        save(timestamp, "resized_" + prefix, resized);
                         // multi capture
                         if (multiCapture < multiCaptureMax) {
                             multiCapture++;
