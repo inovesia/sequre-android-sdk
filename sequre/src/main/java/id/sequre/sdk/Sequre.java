@@ -571,13 +571,13 @@ public class Sequre extends AppCompatActivity {
                             result.status = Status.Fake;
                         }
 
-                        if (result.status.equals(Status.Fake)) {
-                            save(bitmap);
-                            save(resized);
-                        }
+//                        if (result.status.equals(Status.Fake)) {
+//                            save(bitmap);
+//                            save(resized);
+//                        }
                         finish();
                     } else {
-                        save(resized);
+//                        save(resized);
                         log("TensorFlow: no classification found");
                         processing = null;
                     }
@@ -587,7 +587,7 @@ public class Sequre extends AppCompatActivity {
                     log("TensorFlow: error: " + e.toString());
                 }
             } else {
-                save(bitmap);
+//                save(bitmap);
                 log("TensorFlow: no object found");
                 processing = null;
             }

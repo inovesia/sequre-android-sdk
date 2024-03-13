@@ -34,7 +34,7 @@ import okhttp3.RequestBody;
 import okhttp3.Response;
 
 public class Utils {
-    public static final String URL = "https://smobile.sequre.id";
+    public static final String URL = "https://demo-mobile.sequre.id";
 
     public static final String ACTION_VALIDATE = "/api/sdk/validate";
     public static final String ACTION_CHECK_QR = "/api/check-qr";
