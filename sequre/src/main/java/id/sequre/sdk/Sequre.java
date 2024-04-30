@@ -446,20 +446,20 @@ public class Sequre extends AppCompatActivity {
 //                log(detections.size() + " : " + size.getWidth() + "; " + size.getHeight() + ";" + horizontal + "; " + vertical + "; " + width + "; " + height + " boundingBox: " + boundingBox.left + "; " + boundingBox.top + "; " + boundingBox.right + "; " + boundingBox.bottom + "; " + boundingBox.width() + "; " + boundingBox.height());
                 double percentage = boundingBox.width() / width;
 //                System.out.println(":: percentage: " + percentage + " " + moveCloser + ":" + moveFurther);
-                if (percentage < moveCloser || percentage > 1) {
+                if (percentage < moveCloser && percentage < 1) {
 //                    eventColor = Color.GREEN;
                     eventWidth = 10;
                     binding.sequreInfo.setVisibility(View.VISIBLE);
                     binding.sequreInfo.setText(R.string.text_move_closer);
                     mask.invalidate();
                     processing = null;
-                } else if (percentage > moveFurther) {
-//                    eventColor = Color.GREEN;
-                    eventWidth = 10;
-                    binding.sequreInfo.setVisibility(View.VISIBLE);
-                    binding.sequreInfo.setText(R.string.text_move_further);
-                    mask.invalidate();
-                    processing = null;
+//                } else if (percentage > moveFurther) {
+////                    eventColor = Color.GREEN;
+//                    eventWidth = 10;
+//                    binding.sequreInfo.setVisibility(View.VISIBLE);
+//                    binding.sequreInfo.setText(R.string.text_move_further);
+//                    mask.invalidate();
+//                    processing = null;
 //                } else if (!(boundingBox.left >= horizontal && boundingBox.right <= horizontal + width &&
 //                        boundingBox.top >= vertical && boundingBox.bottom <= vertical + height)) {
 ////                    eventColor = Color.GREEN;
