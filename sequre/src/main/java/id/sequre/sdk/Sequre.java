@@ -364,7 +364,7 @@ public class Sequre extends AppCompatActivity {
             BinaryBitmap bitmap = new BinaryBitmap(new HybridBinarizer(source));
 
             log("extract qrcode");
-            TensorImage image = imageProcessor.process(TensorImage.fromBitmap(imageBuffer));
+//            TensorImage image = imageProcessor.process(TensorImage.fromBitmap(imageBuffer));
 //            System.out.println(":: blurClassifier: " + blurClassifier);
 //            List<Classifications> classifications = blurClassifier.classify(image);
 //            System.out.println(":: classifications: " + classifications);
@@ -387,7 +387,7 @@ public class Sequre extends AppCompatActivity {
                 return;
             }
             log("qrcode: " + result.qr);
-            if (!result.qr.startsWith("HTTP://QTRU.ST/")) {
+            if (!result.qr.startsWith("HTTP://AHM.TO/")) {
                 result.status = Status.Fake;
                 result.message = "fake_qr";
                 finish();
@@ -449,7 +449,7 @@ public class Sequre extends AppCompatActivity {
             log("TensorFlow: detecting objects");
 
             boundingBoxs.clear();
-            List<Detection> detections = objectDetector.detect(image);
+//            List<Detection> detections = objectDetector.detect(image);
             System.out.println(":: detections.size(): " + detections.size());
             if (detections.size() > 0) {
                 Size size = new Size(imageProxy.getHeight(), imageProxy.getWidth());
