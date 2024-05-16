@@ -394,6 +394,9 @@ public class Sequre extends AppCompatActivity {
                 return;
             }
 
+            String timestamp = new SimpleDateFormat("yyyyMMdd_HHmm").format(new Date());
+
+
             QrcodeStatus qrcodeStatus = qrcodeStatuses.get(result.qr);
             if (qrcodeStatus == null || System.currentTimeMillis() - qrcodeStatus.timestamp > 5 * 60 * 1000) {
                 // check status
@@ -419,6 +422,8 @@ public class Sequre extends AppCompatActivity {
                     } else {
                         result.status = Status.Fake;
                         result.message = "inactive";
+                        String prefix = "" + result.status.toString().toLowerCase() + "_0";
+                        save(timestamp, "bitmap_" + prefix, imageBuffer);
                         finish();
                     }
                 });
@@ -428,6 +433,8 @@ public class Sequre extends AppCompatActivity {
                 } else {
                     result.status = Status.Fake;
                     result.message = "inactive";
+                    String prefix = "" + result.status.toString().toLowerCase() + "_0";
+                    save(timestamp, "bitmap_" + prefix, imageBuffer);
                     finish();
                 }
             }
