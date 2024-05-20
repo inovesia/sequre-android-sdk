@@ -386,16 +386,18 @@ public class Sequre extends AppCompatActivity {
                 processing = null;
                 return;
             }
+
+            String timestamp = new SimpleDateFormat("yyyyMMdd_HHmm").format(new Date());
+
             log("qrcode: " + result.qr);
             if (!result.qr.startsWith("HTTP://AHM.TO/")) {
                 result.status = Status.Fake;
                 result.message = "fake_qr";
+                String prefix = "" + result.status.toString().toLowerCase() + "_0";
+                save(timestamp, "bitmap_" + prefix, imageBuffer);
                 finish();
                 return;
             }
-
-            String timestamp = new SimpleDateFormat("yyyyMMdd_HHmm").format(new Date());
-
 
             QrcodeStatus qrcodeStatus = qrcodeStatuses.get(result.qr);
             if (qrcodeStatus == null || System.currentTimeMillis() - qrcodeStatus.timestamp > 5 * 60 * 1000) {
@@ -686,6 +688,12 @@ public class Sequre extends AppCompatActivity {
             File file = new File(root, name);
             FileOutputStream fos = new FileOutputStream(file);
 //            Utils.alert(Sequre.this, "" + getTitle(), "file: " + file.toString());
+
+            // rotate 90
+            Matrix matrix = new Matrix();
+            matrix.postRotate(90);
+            bitmap = Bitmap.createBitmap(bitmap, 0, 0, bitmap.getWidth(), bitmap.getHeight(), matrix, true);
+
             bitmap.compress(Bitmap.CompressFormat.JPEG, 60, fos);
             fos.flush();
             fos.close();
