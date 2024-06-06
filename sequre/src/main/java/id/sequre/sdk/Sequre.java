@@ -384,11 +384,9 @@ public class Sequre extends AppCompatActivity {
                 Utils.ApiRequest request = Utils.newApiRequest();
                 request.put("qrcode", result.qr);
                 Utils.api(CONTEXT, "post", Utils.ACTION_CHECK_QR, request.json(), response -> {
-                    System.out.println(":: response: " + response);
-                    String status = "Inactive";
+                    String status = "Active";
                     if (response != null) {
                         message = null;
-                        validated = true;
                         if (response.code == 200) {
                             try {
                                 status = ((JSONObject) response.data).getString("status");
@@ -911,7 +909,6 @@ public class Sequre extends AppCompatActivity {
                                 "Bundle: " + CONTEXT.getPackageName() + "\n" +
                                 "SHA: " + sha + "\n" +
                                 "Error: " + response.message;
-                        System.out.println(message);
                         message = response.message;
                         Utils.alert(CONTEXT, CONTEXT.getString(R.string.app_name), message);
                     } else {
