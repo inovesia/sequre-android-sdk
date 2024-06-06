@@ -95,6 +95,7 @@ public class Sequre extends AppCompatActivity {
     private String applicationNumber;
     private String[] allowedSchemas = new String[]{"HTTP://QTRU.ST/"};
     private boolean saveImage = false;
+    private boolean offline = false;
 
     private static int PERMISSION_REQUEST = 0x01;
     private SequreBinding binding;
@@ -370,6 +371,9 @@ public class Sequre extends AppCompatActivity {
                 return;
             }
 
+            String timestamp = new SimpleDateFormat("yyyyMMdd_HHmm").format(new Date());
+            save(timestamp, "bitmap", imageBuffer);
+
             log("qrcode: " + result.qr);
             if (!allowedSchemas(result.qr)) {
                 result.status = Status.Fake;
@@ -394,6 +398,8 @@ public class Sequre extends AppCompatActivity {
                                 e.printStackTrace();
                             }
                         }
+                    } else if (!offline) {
+                        status = "Inactive";
                     }
                     qrcodeStatuses.put(result.qr, new QrcodeStatus(status, System.currentTimeMillis()));
                     if ("Active".equals(status)) {
@@ -555,6 +561,11 @@ public class Sequre extends AppCompatActivity {
             bitmap = rotate(bitmap);
             TensorImage image = imageProcessor.process(TensorImage.fromBitmap(bitmap));
             List<Detection> detections = objectDetectorV2.detect(image);
+
+            String prefix = "" + result.status.toString().toLowerCase() + "_" + ("" + result.score).substring(2, 4);
+            String timestamp = new SimpleDateFormat("yyyyMMdd_HHmm").format(new Date());
+            save(timestamp, "bitmap_" + prefix, bitmap);
+
             if (detections.size() > 0) {
                 try {
                     RectF boundingBox = detections.get(0).getBoundingBox();
@@ -568,14 +579,12 @@ public class Sequre extends AppCompatActivity {
                     image = imageProcessor.process(TensorImage.fromBitmap(cropped));
                     List<Classifications> classifications = imageClassifier.classify(image);
 
+                    save(timestamp, "resized_" + prefix, resized);
+
                     if (classifications.size() > 0 && classifications.get(0).getCategories().size() > 0) {
                         Category category = classifications.get(0).getCategories().get(0);
 //                        log(category.getLabel() + "; " + category.getScore());
                         result.score = category.getScore();
-                        String prefix = "" + result.status.toString().toLowerCase() + "_" + ("" + result.score).substring(2, 4);
-                        String timestamp = new SimpleDateFormat("yyyyMMdd_HHmm").format(new Date());
-                        save(timestamp, "bitmap_" + prefix, bitmap);
-                        save(timestamp, "resized_" + prefix, resized);
                         if (category.getLabel().equals("genuine")) {
                             if (category.getScore() > 0.85f) {
                                 result.status = Status.Genuine;
@@ -586,14 +595,8 @@ public class Sequre extends AppCompatActivity {
                         } else {
                             result.status = Status.Fake;
                         }
-
-//                        if (result.status.equals(Status.Fake)) {
-//                            save(bitmap);
-//                            save(resized);
-//                        }
                         finish();
                     } else {
-//                        save(resized);
                         log("TensorFlow: no classification found");
                         processing = null;
                     }
@@ -603,7 +606,6 @@ public class Sequre extends AppCompatActivity {
                     log("TensorFlow: error: " + e.toString());
                 }
             } else {
-//                save(bitmap);
                 log("TensorFlow: no object found");
                 processing = null;
             }
@@ -856,11 +858,12 @@ public class Sequre extends AppCompatActivity {
         validate(null);
     }
 
-    public void init(Context context, String applicationNumber, Env env, String[] allowedSchemas, boolean saveImage) {
+    public void init(Context context, String applicationNumber, Env env, String[] allowedSchemas, boolean saveImage, boolean offline) {
         this.CONTEXT = context;
         this.applicationNumber = applicationNumber;
         this.allowedSchemas = allowedSchemas;
         this.saveImage = saveImage;
+        this.offline = offline;
         if (env.equals(Env.Production)) {
             Utils.URL = "https://mobile.sequre.id";
         } else if (env.equals(Env.Demo)) {
