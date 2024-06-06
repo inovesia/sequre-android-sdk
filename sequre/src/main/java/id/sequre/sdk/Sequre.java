@@ -17,6 +17,7 @@ import android.graphics.Color;
 import android.graphics.Matrix;
 import android.graphics.Paint;
 import android.graphics.RectF;
+import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.Environment;
@@ -92,6 +93,8 @@ public class Sequre extends AppCompatActivity {
     private boolean validated;
     private String message;
     private String applicationNumber;
+    private String[] allowedSchemas = new String[]{"HTTP://QTRU.ST/"};
+    private boolean saveImage = false;
 
     private static int PERMISSION_REQUEST = 0x01;
     private SequreBinding binding;
@@ -366,8 +369,9 @@ public class Sequre extends AppCompatActivity {
                 processing = null;
                 return;
             }
+
             log("qrcode: " + result.qr);
-            if (!result.qr.startsWith("HTTP://QTRU.ST/")) {
+            if (!allowedSchemas(result.qr)) {
                 result.status = Status.Fake;
                 result.message = "fake_qr";
                 finish();
@@ -414,6 +418,15 @@ public class Sequre extends AppCompatActivity {
         } else {
             processing = null;
         }
+    }
+
+    private boolean allowedSchemas(String qr) {
+        for (String allowedSchema : allowedSchemas) {
+            if (qr.startsWith(allowedSchema)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private void detect(ImageProxy imageProxy, Bitmap imageBuffer) {
@@ -561,6 +574,10 @@ public class Sequre extends AppCompatActivity {
                         Category category = classifications.get(0).getCategories().get(0);
 //                        log(category.getLabel() + "; " + category.getScore());
                         result.score = category.getScore();
+                        String prefix = "" + result.status.toString().toLowerCase() + "_" + ("" + result.score).substring(2, 4);
+                        String timestamp = new SimpleDateFormat("yyyyMMdd_HHmm").format(new Date());
+                        save(timestamp, "bitmap_" + prefix, bitmap);
+                        save(timestamp, "resized_" + prefix, resized);
                         if (category.getLabel().equals("genuine")) {
                             if (category.getScore() > 0.85f) {
                                 result.status = Status.Genuine;
@@ -618,18 +635,28 @@ public class Sequre extends AppCompatActivity {
         return new RectF(box.top, box.left, box.bottom, box.right);
     }
 
-    private void save(Bitmap bitmap) {
-//        try {
-//            String timestamp = new SimpleDateFormat("yyyyMMdd_HHmm").format(new Date());
-//            String name = timestamp + "_" + System.currentTimeMillis() + ".png";
-//            File file = new File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_PICTURES), name);
-//            FileOutputStream fos = new FileOutputStream(file);
-//            bitmap.compress(Bitmap.CompressFormat.JPEG, 60, fos);
-//            fos.flush();
-//            fos.close();
-//        } catch (Exception e) {
-//            e.printStackTrace();
-//        }
+    private void save(String timestamp, String prefix, Bitmap bitmap) {
+        if (saveImage) {
+            try {
+                String name = timestamp + "_" + System.currentTimeMillis() + "_" + prefix + ".png";
+                File root = new File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DCIM), "sequre/");
+                if (!root.exists()) {
+                    root.mkdirs();
+                }
+                File file = new File(root, name);
+                FileOutputStream fos = new FileOutputStream(file);
+                bitmap.compress(Bitmap.CompressFormat.JPEG, 60, fos);
+                fos.flush();
+                fos.close();
+
+                Intent mediaScanIntent = new Intent(Intent.ACTION_MEDIA_SCANNER_SCAN_FILE);
+                Uri contentUri = Uri.fromFile(file);
+                mediaScanIntent.setData(contentUri);
+                this.sendBroadcast(mediaScanIntent);
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
+        }
     }
 
     private void initMask(ImageProxy image) {
@@ -831,6 +858,21 @@ public class Sequre extends AppCompatActivity {
         validate(null);
     }
 
+    public void init(Context context, String applicationNumber, Env env, String[] allowedSchemas, boolean saveImage) {
+        this.CONTEXT = context;
+        this.applicationNumber = applicationNumber;
+        this.allowedSchemas = allowedSchemas;
+        this.saveImage = saveImage;
+        if (env.equals(Env.Production)) {
+            Utils.URL = "https://mobile.sequre.id";
+        } else if (env.equals(Env.Demo)) {
+            Utils.URL = "https://demo-mobile.sequre.id";
+        } else {
+            Utils.URL = "https://smobile.sequre.id";
+        }
+        validate(null);
+    }
+
     public void setLanguage(String language) {
         SharedPreferences pref = CONTEXT.getSharedPreferences(CONTEXT.getPackageName(), MODE_PRIVATE);
         pref.edit().putString("l", language).apply();
@@ -906,5 +948,9 @@ public class Sequre extends AppCompatActivity {
 
     abstract class Callback {
         abstract void on();
+    }
+
+    public enum Env {
+        Staging, Production, Demo;
     }
 }
